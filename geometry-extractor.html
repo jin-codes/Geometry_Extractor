@@ -255,7 +255,7 @@ const SYSTEM_PROMPT = `너는 평면기하 문제 텍스트를 구조화된 JSON
    - ratio: targets=[점,끝점1,끝점2] → on_segment와 동일한 형태로 비율 표현. value는 "1:2"처럼 비율.
    - parallel: targets=[A,B,C,D] → 직선 AB와 직선 CD가 평행.
    - perpendicular: targets=[A,B,C,D] → 직선 AB와 직선 CD가 수직.
-   - equal_length: targets=[A,B,C,D] → 선분 AB와 선분 CD 길이가 같음.
+   - equal_length: targets=[A,B,C,D] → 선분 AB와 선분 CD 길이가 같음. 공통 길이가 구체적 숫자로 주어지면("AB=CD=24" 등) value에 그 숫자를 넣는다(예: "24") — 이 숫자가 없으면 도형의 실제 크기를 알 수 없게 되므로 null로 비워두지 않는다.
    - equal_angle: targets=[V1,P1,P2,V2,P3,P4] → 각(P1,V1,P2)과 각(P3,V2,P4)이 같음.
    - collinear: targets=[A,B,C,...] → 나열된 점들이 한 직선 위에 있음.
    - tangent: targets=[직선의 두 점 또는 원 위 점, 원의 중심] → description에 구체적으로 서술.
@@ -527,7 +527,7 @@ function ggName(id) {
 // back as "unresolved" so the user can fix it manually in GeoGebra.
 const DEFAULT_LENGTH = 5;
 
-function extractAliases(constraints) {
+function extractAliases(constraints, points) {
   const aliases = {};
   for (const c of constraints) {
     if (c.type === 'length' && c.targets && c.targets.length === 2 && c.value != null) {
@@ -537,6 +537,23 @@ function extractAliases(constraints) {
     if (c.type === 'other' && c.targets && c.targets.length === 2) {
       const m = (c.description || '').match(/\b([a-zA-Z])\s*(?:라|로)\s*(?:함|한다|하자|둠|둔다|놓는다|놓자|정의|표기)/);
       if (m) aliases[m[1]] = { a: c.targets[0], b: c.targets[1], src: c };
+    }
+  }
+  // Fallback: the LLM sometimes never emits a dedicated length constraint for a
+  // named-variable segment at all — e.g. it folds "DB = x, EB = y, x+y=15" straight into
+  // one "other" constraint targeting the points, not the variable names — so scan
+  // point/constraint description text directly for "<seg> = <letter>" wherever it shows up.
+  const idPattern = (points || []).map(p => p.id)
+    .filter(id => /^[A-Za-z]$/.test(id))
+    .map(id => id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|');
+  if (idPattern) {
+    const segRe = new RegExp('(' + idPattern + ')(' + idPattern + ')[^=]{0,3}=\\s*([A-Za-z])\\b');
+    const texts = constraints.map(c => c.description).concat((points || []).map(p => p.description));
+    for (const text of texts) {
+      if (!text) continue;
+      const m = text.match(segRe);
+      if (m && !aliases[m[3]]) aliases[m[3]] = { a: m[1], b: m[2], src: { description: text } };
     }
   }
   return aliases;
@@ -585,7 +602,7 @@ function buildGeoGebraCommands(json) {
   const placed = new Set();
   const coords = {}; // id -> [x,y], numeric mirror of what the emitted GeoGebra commands compute
   const constraints = json.constraints || [];
-  const aliases = extractAliases(constraints);
+  const aliases = extractAliases(constraints, points);
   function aliasFor(p, other) {
     return Object.values(aliases).find(al => (al.a === p && al.b === other) || (al.a === other && al.b === p));
   }
@@ -594,7 +611,15 @@ function buildGeoGebraCommands(json) {
     const c = constraints.find(c => c.type === 'length' &&
       c.targets && c.targets.length === 2 &&
       ((c.targets[0] === a && c.targets[1] === b) || (c.targets[0] === b && c.targets[1] === a)));
-    return c ? parseNumber(c.value) : null;
+    if (c) return parseNumber(c.value);
+    // "AB = CD = 24" often comes back as a single equal_length constraint carrying the
+    // shared number in value, rather than two separate length constraints — without this,
+    // that 24 is silently dropped and the pair falls back to the arbitrary DEFAULT_LENGTH.
+    const eq = constraints.find(c => c.type === 'equal_length' &&
+      c.targets && c.targets.length === 4 && parseNumber(c.value) !== null &&
+      (((c.targets[0] === a && c.targets[1] === b) || (c.targets[0] === b && c.targets[1] === a)) ||
+       ((c.targets[2] === a && c.targets[3] === b) || (c.targets[2] === b && c.targets[3] === a))));
+    return eq ? parseNumber(eq.value) : null;
   }
   function descriptionImpliesVertex(desc, vertex) {
     if (!desc) return false;
@@ -1039,12 +1064,17 @@ function buildGeoGebraCommands(json) {
       const { x, cost } = solveLeastSquares(fn, initialGuess, {});
 
       let valid = cost < 1e-6;
-      // sanity filter: every on_segment-derived scalar variable should land within its segment
+      // sanity filter: every on_segment-derived scalar variable should land within its segment.
+      // Must compare against the segment the point actually slides along (resolved[].anchorId/
+      // otherId, e.g. B->A for "D on AB"), not the alias's own two letters (e.g. D,B for "DB=x") —
+      // that pair includes the point being solved for, so measuring its length back out is circular
+      // and always passes (it can only ever equal |x| itself, never catch x exceeding the real segment).
       for (const [varName, idx] of Object.entries(varIndex)) {
         if (varName.startsWith('__x_') || varName.startsWith('__y_')) continue;
-        const al = aliases[varName];
-        if (!al) continue;
-        const segLen = vLen(vSub(coords[al.b] || coordOf(al.b, x, sign), coords[al.a] || coordOf(al.a, x, sign)));
+        const varPoint = leftover.find(p => resolved[p.id] && resolved[p.id].kind === 'var' && resolved[p.id].varIdx === idx);
+        if (!varPoint) continue;
+        const r = resolved[varPoint.id];
+        const segLen = vLen(vSub(coordOf(r.otherId, x, sign), coordOf(r.anchorId, x, sign)));
         if (x[idx] < -1e-6 || x[idx] > segLen + 1e-6) valid = false;
       }
       // sanity filter: "내부의 점" hint vs an already-fixed enclosing polygon
@@ -1110,7 +1140,8 @@ function buildGeoGebraCommands(json) {
       }
     }
 
-    result.messages.push(`[솔버] ${leftover.map(p => p.id).join(',')}: 연립방정식으로 계산됨 (${varValueDesc.join(', ')})`);
+    const validityWarning = best.valid ? '' : ' — ⚠ 값이 유효 범위를 벗어남(음수 또는 변의 길이 초과): 다른 제약이 누락됐거나 잘못 해석됐을 수 있음, 수동 확인 필요';
+    result.messages.push(`[솔버] ${leftover.map(p => p.id).join(',')}: 연립방정식으로 계산됨 (${varValueDesc.join(', ')})${validityWarning}`);
     return result;
   }
 
