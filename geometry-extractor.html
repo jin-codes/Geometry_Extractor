@@ -247,7 +247,7 @@ const SYSTEM_PROMPT = `너는 평면기하 문제 텍스트를 구조화된 JSON
 4. constraints의 type은 다음 enum 중 하나를 사용한다: length, angle, right_angle, parallel, perpendicular, equal_length, equal_angle, midpoint, ratio, collinear, on_segment, tangent, distance, area, other.
    enum에 맞지 않으면 other를 쓰고 description에 구체적으로 서술한다.
    이후 단계에서 GeoGebra 작도로 기계적으로 변환하므로 targets의 점 순서를 아래 관례대로 반드시 지킨다:
-   - length: targets=[P,Q] → 선분 PQ의 길이. value는 숫자만(단위 없이).
+   - length: targets=[P,Q] → 선분 PQ의 길이. value는 숫자만(단위 없이). 단, 문제가 이 길이를 알파벳 한 글자 변수로 이름 붙인 경우("PQ의 길이를 x라 하자" 등) value에 그 변수명 한 글자를 넣는다(예: "x") — 다른 constraint(예: "x+y=15")에서 이 변수를 참조할 수 있으므로 null로 비워두지 않는다.
    - angle: targets=[꼭짓점,점1,점2] → 점1-꼭짓점-점2 각. value는 도(degree) 숫자만.
    - right_angle: targets=[꼭짓점,점1,점2] → 위와 같되 90도 고정.
    - midpoint: targets=[중점,끝점1,끝점2] → 중점이 끝점1-끝점2의 중점.
