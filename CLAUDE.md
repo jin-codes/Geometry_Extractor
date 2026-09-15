@@ -17,20 +17,23 @@
 
 ## 파이프라인 (4단계)
 
-1. **텍스트 → 구조화 JSON** ← 현재 여기, 프로토타입 테스트 중
-   - 산출물: `geometry-extractor.html` (Claude API 직접 호출하는 단일 HTML 아티팩트)
+1~3단계는 `geometry-extractor.html` 하나에 프로토타입으로 구현되어 있음 (동작). ← 현재 여기, 1단계 실측 검증 중 (아래 체크리스트)
+
+1. **텍스트 → 구조화 JSON**
+   - Claude API 직접 호출하는 단일 HTML 아티팩트
    - 스키마: `points`, `shapes`, `constraints`, `underdetermined`, `notes`
    - constraint type enum: length, angle, right_angle, parallel, perpendicular, equal_length, equal_angle, midpoint, ratio, collinear, on_segment, tangent, distance, area, other
 
 2. **JSON → GeoGebra 작도**
-   - 규칙 기반 변환 (LLM 불필요): JSON → `Execute()` 커맨드 리스트
-   - 실행은 기존 GeoGebra MCP 서버 재사용 검토 (직접 만들지 않기)
+   - 규칙 기반 변환 (LLM 불필요): JSON → GeoGebra `Execute()` 커맨드 리스트
+   - 실행은 GeoGebra 공식 Apps API를 페이지에 직접 임베드해서 사용 (별도 MCP 서버 재사용 계획은 폐기 — 브라우저 단일 파일로 충분히 해결됨)
+   - 처리 가능한 패턴, 알려진 한계는 [README.md](README.md) 참고
 
 3. **렌더링 후 원본과 비교**
-   - 작도 결과 export → 원본 문제 이미지와 함께 비전 모델에 diff 요청
-   - diff 종류: (a) 단순 수치 차이 (b) 배치/구조 차이 — 구분해서 처리
+   - 작도 결과를 GeoGebra Apps API로 PNG export 후, 원본 문제 이미지와 함께 비전 모델(Claude)에 diff 요청 (같은 HTML 안에서 호출)
+   - diff 종류: (a) 단순 수치 차이 (b) 배치/구조 차이 — 구분해서 처리, 다음 액션(수동 수정 vs 재추출)을 화면에 안내
 
-4. **수정 루프**
+4. **수정 루프** — 아직 사람이 수동으로 반복 (자동화 전)
    - (a)면 JSON 값만 수정 후 2단계 재실행
    - (b)면 해당 underdetermined 점에 대해서만 좁은 질문 던져 제약 추가
 

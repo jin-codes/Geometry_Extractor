@@ -410,6 +410,106 @@ renderOutput = function(obj) {
   constructBtn.disabled = false;
 };
 
+// ---- numeric vector helpers (mirror, in plain JS numbers, exactly what the
+// GeoGebra command strings below compute — needed so the phase-3 solver can
+// run real numeric optimization without waiting on the GeoGebra applet) ----
+function vAdd(a, b) { return [a[0] + b[0], a[1] + b[1]]; }
+function vSub(a, b) { return [a[0] - b[0], a[1] - b[1]]; }
+function vScale(a, k) { return [a[0] * k, a[1] * k]; }
+function vDot(a, b) { return a[0] * b[0] + a[1] * b[1]; }
+function vCross(a, b) { return a[0] * b[1] - a[1] * b[0]; }
+function vLen(a) { return Math.hypot(a[0], a[1]); }
+function vRotateDeg(a, deg) {
+  const r = deg * Math.PI / 180;
+  const c = Math.cos(r), s = Math.sin(r);
+  return [a[0] * c - a[1] * s, a[0] * s + a[1] * c];
+}
+function circleCircleIntersect(c1, r1, c2, r2) {
+  const d = vLen(vSub(c2, c1));
+  if (d < 1e-12 || d > r1 + r2 + 1e-9 || d < Math.abs(r1 - r2) - 1e-9) return null;
+  const a = (r1 * r1 - r2 * r2 + d * d) / (2 * d);
+  const hh = r1 * r1 - a * a;
+  const h = hh > 0 ? Math.sqrt(hh) : 0;
+  const dir = vScale(vSub(c2, c1), 1 / d);
+  const mid = vAdd(c1, vScale(dir, a));
+  const perp = [-dir[1], dir[0]];
+  return vAdd(mid, vScale(perp, h)); // fixed branch convention (see README limitations)
+}
+function pointInPolygon(pt, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
+    const intersect = ((yi > pt[1]) !== (yj > pt[1])) &&
+      (pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+// ---- tiny Levenberg-Marquardt least-squares solver (numeric Jacobian) ----
+// Used by phase 3 (see buildGeoGebraCommands) to solve small tangled subsystems
+// — e.g. a rigid shape whose vertices are also tied together by an algebraic
+// relation between two of its side lengths — that no single sequential rule
+// below can place on its own.
+function solveLinearSystem(A, b) {
+  const n = b.length;
+  const M = A.map((row, i) => row.concat([b[i]]));
+  for (let col = 0; col < n; col++) {
+    let piv = col;
+    for (let r = col + 1; r < n; r++) if (Math.abs(M[r][col]) > Math.abs(M[piv][col])) piv = r;
+    if (Math.abs(M[piv][col]) < 1e-14) return null;
+    [M[col], M[piv]] = [M[piv], M[col]];
+    for (let r = 0; r < n; r++) {
+      if (r === col) continue;
+      const f = M[r][col] / M[col][col];
+      for (let c = col; c <= n; c++) M[r][c] -= f * M[col][c];
+    }
+  }
+  return M.map((row, i) => row[n] / row[i]);
+}
+function solveLeastSquares(residualFn, x0, opts) {
+  opts = opts || {};
+  const maxIter = opts.maxIter || 300;
+  const tol = opts.tol || 1e-12;
+  let x = x0.slice();
+  const n = x.length;
+  let lambda = 1e-3;
+  let r = residualFn(x);
+  let cost = r.reduce((s, v) => s + v * v, 0);
+  const h = 1e-6;
+  for (let iter = 0; iter < maxIter; iter++) {
+    const m = r.length;
+    const J = Array.from({ length: m }, () => new Array(n).fill(0));
+    for (let j = 0; j < n; j++) {
+      const xh = x.slice(); xh[j] += h;
+      const rh = residualFn(xh);
+      for (let i = 0; i < m; i++) J[i][j] = (rh[i] - r[i]) / h;
+    }
+    const JTJ = Array.from({ length: n }, () => new Array(n).fill(0));
+    const JTr = new Array(n).fill(0);
+    for (let i = 0; i < m; i++) {
+      for (let a = 0; a < n; a++) {
+        JTr[a] += J[i][a] * r[i];
+        for (let b = 0; b < n; b++) JTJ[a][b] += J[i][a] * J[i][b];
+      }
+    }
+    for (let a = 0; a < n; a++) JTJ[a][a] += lambda;
+    const dx = solveLinearSystem(JTJ, JTr.map(v => -v));
+    if (!dx) { lambda *= 10; if (lambda > 1e12) break; continue; }
+    const xNew = x.map((v, i) => v + dx[i]);
+    const rNew = residualFn(xNew);
+    const costNew = rNew.reduce((s, v) => s + v * v, 0);
+    if (costNew < cost) {
+      x = xNew; r = rNew; cost = costNew; lambda = Math.max(lambda / 3, 1e-12);
+      if (cost < tol) break;
+    } else {
+      lambda *= 5;
+      if (lambda > 1e12) break;
+    }
+  }
+  return { x, cost, residual: r };
+}
+
 function parseNumber(value) {
   if (value === null || value === undefined) return null;
   const m = String(value).match(/-?\d+(\.\d+)?/);
@@ -427,6 +527,54 @@ function ggName(id) {
 // back as "unresolved" so the user can fix it manually in GeoGebra.
 const DEFAULT_LENGTH = 5;
 
+function extractAliases(constraints) {
+  const aliases = {};
+  for (const c of constraints) {
+    if (c.type === 'length' && c.targets && c.targets.length === 2 && c.value != null) {
+      const v = String(c.value).trim();
+      if (/^[a-zA-Z]$/.test(v)) aliases[v] = { a: c.targets[0], b: c.targets[1], src: c };
+    }
+    if (c.type === 'other' && c.targets && c.targets.length === 2) {
+      const m = (c.description || '').match(/\b([a-zA-Z])\s*(?:라|로)\s*(?:함|한다|하자|둠|둔다|놓는다|놓자|정의|표기)/);
+      if (m) aliases[m[1]] = { a: c.targets[0], b: c.targets[1], src: c };
+    }
+  }
+  return aliases;
+}
+
+// Find every "<terms involving known variable names> = <number>" clause in a
+// constraint's free-form description — e.g. "DB + EB = 15, 즉 x + y = 15"
+// restates the same fact twice, once in point-letters (not usable) and once
+// in the declared variables (usable); scanning clause-by-clause instead of
+// just the text up to the first "=" is what lets the second one be found.
+function parseLinearTerms(lhs, aliasNames) {
+  if (aliasNames.length === 0) return [];
+  const namesPattern = aliasNames.map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  const re = new RegExp('([+-]?)\\s*(\\d+(\\.\\d+)?)?\\s*\\*?\\s*(?<![A-Za-z])(' + namesPattern + ')(?![A-Za-z])', 'g');
+  const terms = [];
+  let m;
+  while ((m = re.exec(lhs)) !== null) {
+    const sign = m[1] === '-' ? -1 : 1;
+    const mag = m[2] ? parseFloat(m[2]) : 1;
+    terms.push({ coef: sign * mag, v: m[4] });
+  }
+  return terms;
+}
+function extractLinearEquations(constraints, aliasNames) {
+  const equations = [];
+  for (const c of constraints) {
+    if (c.type !== 'other') continue;
+    const desc = c.description || '';
+    for (const clause of desc.split(/[,.]|즉|그리고/)) {
+      const eqMatch = clause.match(/([^=]+)=\s*(-?\d+(\.\d+)?)/);
+      if (!eqMatch) continue;
+      const terms = parseLinearTerms(eqMatch[1], aliasNames);
+      if (terms.length > 0) { equations.push({ terms, rhs: parseFloat(eqMatch[2]), src: c }); break; }
+    }
+  }
+  return equations;
+}
+
 function buildGeoGebraCommands(json) {
   const commands = [];
   const unresolved = [];
@@ -435,7 +583,12 @@ function buildGeoGebraCommands(json) {
   points.forEach(p => idToPoint[p.id] = p);
 
   const placed = new Set();
+  const coords = {}; // id -> [x,y], numeric mirror of what the emitted GeoGebra commands compute
   const constraints = json.constraints || [];
+  const aliases = extractAliases(constraints);
+  function aliasFor(p, other) {
+    return Object.values(aliases).find(al => (al.a === p && al.b === other) || (al.a === other && al.b === p));
+  }
 
   function findLength(a, b) {
     const c = constraints.find(c => c.type === 'length' &&
@@ -443,12 +596,6 @@ function buildGeoGebraCommands(json) {
       ((c.targets[0] === a && c.targets[1] === b) || (c.targets[0] === b && c.targets[1] === a)));
     return c ? parseNumber(c.value) : null;
   }
-  // The extraction step is told to put the vertex first in an angle's targets, but in
-  // practice it sometimes writes natural "∠XYZ" order instead (vertex in the middle) —
-  // observed to vary between otherwise-identical requests. Trusting array position alone
-  // silently reads the wrong vertex, so cross-check against the description text, which
-  // reliably uses standard math notation (vertex is the middle letter of a 3-letter name,
-  // or the single letter directly after "각도"/"각").
   function descriptionImpliesVertex(desc, vertex) {
     if (!desc) return false;
     const singleRe = new RegExp('(?:각도|각)\\s*' + vertex + '\\s*(?:는|은|=|:|가|이)');
@@ -456,8 +603,6 @@ function buildGeoGebraCommands(json) {
     const triples = desc.match(/\b[A-Za-z]{3}\b/g) || [];
     return triples.some(t => t[1].toUpperCase() === vertex.toUpperCase());
   }
-  // Which of a 3-point angle constraint's targets is the real vertex, per its text —
-  // null if the description doesn't clearly name any of them (caller falls back to position 0).
   function describedVertexOf(c) {
     for (const candidate of c.targets) {
       if (descriptionImpliesVertex(c.description, candidate)) return candidate;
@@ -482,8 +627,6 @@ function buildGeoGebraCommands(json) {
     const c = constraints.find(c => c.type === 'midpoint' && c.targets && c.targets[0] === m);
     return c ? { a: c.targets[1], b: c.targets[2] } : null;
   }
-  // Only returns a result when the ratio is actually given in the text (an explicit
-  // number, or an "a:b" ratio) — this is the exact case, safe to use in the exact phase.
   function findOnSegmentExact(p) {
     const c = constraints.find(c => (c.type === 'on_segment' || c.type === 'ratio') && c.targets && c.targets[0] === p);
     if (!c) return null;
@@ -500,22 +643,16 @@ function buildGeoGebraCommands(json) {
     if (t === null) return null;
     return { a: c.targets[1], b: c.targets[2], t };
   }
-
-  // No ratio given at all (e.g. "H는 BE 위의 점" with no number) — this is a guess,
-  // not a fact, so it must never outrank a real exact rule (like a perpendicular foot)
-  // that could place the same point precisely. Only used as a last-resort approximation.
   function findOnSegmentGuess(p) {
     const c = constraints.find(c => (c.type === 'on_segment' || c.type === 'ratio') && c.targets && c.targets[0] === p);
     if (!c) return null;
     if (findOnSegmentExact(p)) return null;
+    // the text names this point's distance from an endpoint (e.g. "DB=x") — its
+    // real position is meant to come from solving an equation (phase 3), not a
+    // coin-flip midpoint that would silently produce a confidently wrong shape.
+    if (aliasFor(p, c.targets[1]) || aliasFor(p, c.targets[2])) return null;
     return { a: c.targets[1], b: c.targets[2], t: 0.5 };
   }
-
-  // A common textbook pattern: a cevian from vertexId to the midpoint of the opposite
-  // side of a parallelogram splits the vertex's interior angle into two given parts.
-  // Two independently-assumed default lengths for the two adjacent sides would silently
-  // force the parallelogram into a specific (usually wrong) shape and break that split —
-  // so derive the true length ratio between the sides via the law of sines instead.
   function findCevianDerivedLength(vertexId, adjId, targetId) {
     for (const s of (json.shapes || [])) {
       if (s.type !== 'parallelogram' || !s.points || s.points.length !== 4) continue;
@@ -543,7 +680,7 @@ function buildGeoGebraCommands(json) {
     return null;
   }
 
-  // seed: first two points connected by a known length
+  // seed
   let seeded = false;
   for (const p of points) {
     if (seeded) break;
@@ -553,35 +690,31 @@ function buildGeoGebraCommands(json) {
       if (len !== null) {
         commands.push(`${p.gid}=(0,0)`);
         commands.push(`${q.gid}=(${len},0)`);
+        coords[p.id] = [0, 0]; coords[q.id] = [len, 0];
         placed.add(p.id); placed.add(q.id);
         seeded = true;
         break;
       }
     }
   }
-  // no length constraint anywhere in the problem (e.g. a parallelogram where only
-  // angles matter and the answer doesn't depend on side lengths) — still seed two
-  // points with a default length so the rest of the construction has something to
-  // build on, and say so explicitly rather than silently making a shape up later.
   if (!seeded && points.length >= 2) {
     const [p, q] = points;
     commands.push(`${p.gid}=(0,0)`);
     commands.push(`${q.gid}=(${DEFAULT_LENGTH},0)`);
+    coords[p.id] = [0, 0]; coords[q.id] = [DEFAULT_LENGTH, 0];
     placed.add(p.id); placed.add(q.id);
     seeded = true;
     unresolved.push(`${p.id}-${q.id}: 문제에 길이 조건이 없어 임의로 ${DEFAULT_LENGTH}로 배치 (답이 길이에 의존하지 않는 문제라면 무시해도 됨)`);
   }
   if (!seeded && points.length > 0) {
     commands.push(`${points[0].gid}=(0,0)`);
+    coords[points[0].id] = [0, 0];
     placed.add(points[0].id);
   }
 
   const consumedConstraints = new Set();
 
   function findPerpFoot(p) {
-    // perpendicular targets=[X,Y,P,Q] means line XY ⊥ line PQ. If exactly one of the
-    // four is this still-unplaced point and the other three are placed, that point is
-    // the foot of a perpendicular dropped onto whichever line it doesn't anchor.
     for (const c of constraints) {
       if (c.type !== 'perpendicular' || !c.targets || c.targets.length !== 4) continue;
       const [t0, t1, t2, t3] = c.targets;
@@ -596,13 +729,6 @@ function buildGeoGebraCommands(json) {
     return null;
   }
 
-  // Two-phase placement: exact geometric rules (midpoint, point-on-segment, distance
-  // intersection, parallelogram closure, perpendicular foot) are always run to a fixed
-  // point BEFORE any approximate rule runs. Approximate rules (angle + assumed length)
-  // place at most one point per round, then control returns to the exact phase — this
-  // stops an early approximate guess (e.g. for a point that is actually a midpoint of
-  // two not-yet-placed points) from blocking the exact relation that would otherwise
-  // have determined it correctly.
   let overallProgress = true;
   while (overallProgress) {
     overallProgress = false;
@@ -616,12 +742,14 @@ function buildGeoGebraCommands(json) {
         const mid = findMidpoint(p.id);
         if (mid && placed.has(mid.a) && placed.has(mid.b)) {
           commands.push(`${p.gid}=Midpoint(${ggName(mid.a)},${ggName(mid.b)})`);
+          coords[p.id] = vScale(vAdd(coords[mid.a], coords[mid.b]), 0.5);
           placed.add(p.id); exactProgress = overallProgress = true; continue;
         }
 
         const onSeg = findOnSegmentExact(p.id);
         if (onSeg && placed.has(onSeg.a) && placed.has(onSeg.b)) {
           commands.push(`${p.gid}=${ggName(onSeg.a)}+${onSeg.t}*(${ggName(onSeg.b)}-${ggName(onSeg.a)})`);
+          coords[p.id] = vAdd(coords[onSeg.a], vScale(vSub(coords[onSeg.b], coords[onSeg.a]), onSeg.t));
           placed.add(p.id); exactProgress = overallProgress = true; continue;
         }
 
@@ -632,6 +760,8 @@ function buildGeoGebraCommands(json) {
           commands.push(`circ_${p.gid}_1=Circle(${r1p.gid},${d1})`);
           commands.push(`circ_${p.gid}_2=Circle(${r2p.gid},${d2})`);
           commands.push(`${p.gid}=Intersect(circ_${p.gid}_1,circ_${p.gid}_2,1)`);
+          const ip = circleCircleIntersect(coords[r1p.id], d1, coords[r2p.id], d2);
+          coords[p.id] = ip || [0, 0];
           placed.add(p.id); exactProgress = overallProgress = true; continue;
         }
 
@@ -643,13 +773,15 @@ function buildGeoGebraCommands(json) {
           const others = s.points.filter(id => id !== p.id);
           if (!others.every(id => placed.has(id))) continue;
           const [A, B, C, D] = s.points.map(ggName);
-          let formula = null;
-          if (idx === 0) formula = `${B}+${D}-${C}`;      // A = B + D - C
-          else if (idx === 1) formula = `${A}+${C}-${D}`; // B = A + C - D
-          else if (idx === 2) formula = `${B}+${D}-${A}`; // C = B + D - A
-          else if (idx === 3) formula = `${A}+${C}-${B}`; // D = A + C - B
+          const [Aid, Bid, Cid, Did] = s.points;
+          let formula = null, cvec = null;
+          if (idx === 0) { formula = `${B}+${D}-${C}`; cvec = vSub(vAdd(coords[Bid], coords[Did]), coords[Cid]); }
+          else if (idx === 1) { formula = `${A}+${C}-${D}`; cvec = vSub(vAdd(coords[Aid], coords[Cid]), coords[Did]); }
+          else if (idx === 2) { formula = `${B}+${D}-${A}`; cvec = vSub(vAdd(coords[Bid], coords[Did]), coords[Aid]); }
+          else if (idx === 3) { formula = `${A}+${C}-${B}`; cvec = vSub(vAdd(coords[Aid], coords[Cid]), coords[Bid]); }
           if (formula) {
             commands.push(`${p.gid}=${formula}`);
+            coords[p.id] = cvec;
             placed.add(p.id); exactProgress = overallProgress = true; didPlace = true; break;
           }
         }
@@ -658,12 +790,34 @@ function buildGeoGebraCommands(json) {
         const foot = findPerpFoot(p);
         if (foot) {
           commands.push(`${p.gid}=ClosestPoint(Line(${ggName(foot.lineA)},${ggName(foot.lineB)}),${ggName(foot.from)})`);
+          const A = coords[foot.lineA], B = coords[foot.lineB], F = coords[foot.from];
+          const dir = vSub(B, A);
+          const L2 = vDot(dir, dir);
+          const t = L2 > 1e-12 ? vDot(vSub(F, A), dir) / L2 : 0;
+          coords[p.id] = vAdd(A, vScale(dir, t));
           placed.add(p.id); exactProgress = overallProgress = true; continue;
         }
       }
     }
 
-    // one approximate placement, then loop back to the exact phase
+    // Before falling back to blind guesses (default lengths, midpoint guesses),
+    // give the leftover points one shot at being solved together as a simultaneous
+    // system — this is what a rigid shape (e.g. a square) tied to an algebraic
+    // relation between two of its side lengths needs, since no single point in
+    // that group can be placed on its own.
+    const stillUnplaced = points.filter(p => !placed.has(p.id));
+    if (stillUnplaced.length > 0) {
+      const phase3 = trySolveSubsystem(stillUnplaced);
+      if (phase3.placedIds.length > 0) {
+        for (const id of phase3.placedIds) placed.add(id);
+        unresolved.push(...phase3.messages);
+        commands.push(...phase3.commands);
+        for (const c of phase3.consumed) consumedConstraints.add(c);
+        overallProgress = true;
+        continue;
+      }
+    }
+
     for (const p of points) {
       if (placed.has(p.id)) continue;
 
@@ -675,12 +829,20 @@ function buildGeoGebraCommands(json) {
         if (refCandidate) {
           const ang = findAngleAt(vertex.id, refCandidate.id, p.id);
           commands.push(`${p.gid}=${vertex.gid}+(${d}/Distance(${vertex.gid},${refCandidate.gid}))*Rotate(${refCandidate.gid}-${vertex.gid},${ang}°)`);
+          const distVR = vLen(vSub(coords[refCandidate.id], coords[vertex.id]));
+          const rotv = vRotateDeg(vSub(coords[refCandidate.id], coords[vertex.id]), ang);
+          coords[p.id] = vAdd(coords[vertex.id], vScale(rotv, distVR > 1e-12 ? d / distVR : 0));
           unresolved.push(`${p.id}: ${vertex.id} 기준 ${refCandidate.id} 방향에서 회전시켜 근사 배치 — 방향(부호) 확인 필요`);
           placed.add(p.id); overallProgress = true; break;
         }
       }
 
-      if (distTargets1.length === 0) {
+      // a point whose distance from some other point is a named variable (e.g.
+      // "DB=x") is meant to be pinned down by solving an equation, not stamped
+      // with a coin-flip default length — leave it for phase 3 / the grid fallback.
+      const hasUnresolvedAlias = Object.values(aliases).some(al => al.a === p.id || al.b === p.id);
+
+      if (distTargets1.length === 0 && !hasUnresolvedAlias) {
         let placedHere = false;
         for (const vertex of points.filter(q => placed.has(q.id))) {
           const refCandidate = points.find(q => placed.has(q.id) && q.id !== vertex.id && findAngleAt(vertex.id, q.id, p.id) !== null);
@@ -689,6 +851,9 @@ function buildGeoGebraCommands(json) {
             const derived = findCevianDerivedLength(vertex.id, refCandidate.id, p.id);
             const len = derived !== null ? derived : DEFAULT_LENGTH;
             commands.push(`${p.gid}=${vertex.gid}+(${len}/Distance(${vertex.gid},${refCandidate.gid}))*Rotate(${refCandidate.gid}-${vertex.gid},${ang}°)`);
+            const distVR = vLen(vSub(coords[refCandidate.id], coords[vertex.id]));
+            const rotv = vRotateDeg(vSub(coords[refCandidate.id], coords[vertex.id]), ang);
+            coords[p.id] = vAdd(coords[vertex.id], vScale(rotv, distVR > 1e-12 ? len / distVR : 0));
             unresolved.push(derived !== null
               ? `${p.id}: 절대 길이는 임의 기준(${vertex.id}-${refCandidate.id}=${DEFAULT_LENGTH})에 맞춘 것이지만, 다른 각도 조건으로부터 ${vertex.id}-${p.id} 비율은 정확히 역산함`
               : `${p.id}: 길이 조건이 없어 ${vertex.id}에서 거리 ${DEFAULT_LENGTH}로 임의 배치 (각도만 문제라면 무시 가능), 방향 확인 필요`);
@@ -698,20 +863,258 @@ function buildGeoGebraCommands(json) {
         if (placedHere) break;
       }
 
-      // last resort: "H is on segment BE" with no ratio given anywhere in the text.
-      // Only reached if nothing above (including the exact phase's perpendicular-foot
-      // rule) could pin the point down precisely.
       const guess = findOnSegmentGuess(p.id);
       if (guess && placed.has(guess.a) && placed.has(guess.b)) {
         commands.push(`${p.gid}=${ggName(guess.a)}+${guess.t}*(${ggName(guess.b)}-${ggName(guess.a)})`);
+        coords[p.id] = vAdd(coords[guess.a], vScale(vSub(coords[guess.b], coords[guess.a]), guess.t));
         unresolved.push(`${p.id}: ${guess.a}-${guess.b} 위의 점인데 정확한 비율이 텍스트에 없어 중점으로 임의 배치 — 수동 확인 필요`);
         placed.add(p.id); overallProgress = true; break;
       }
     }
   }
 
-  // anything still unplaced: drop on a simple grid so the construction doesn't fail,
-  // and flag it for manual placement
+  // ---------------------------------------------------------------
+  // Phase 3: leftover points that form a genuinely simultaneous system
+  // (e.g. a rigid shape whose vertices are also tied together by an
+  // algebraic relation between two of its side lengths) — invoked from
+  // inside the placement loop above, before it falls back to guessing.
+  // ---------------------------------------------------------------
+  function trySolveSubsystem(leftover) {
+    const result = { placedIds: [], messages: [], commands: [], consumed: [] };
+
+    // aliases (named scalar lengths) were already extracted once for the whole
+    // problem, above; here we only need the linear equations among them.
+    const aliasNames = Object.keys(aliases);
+    const equations = extractLinearEquations(constraints, aliasNames);
+
+    function coordsKnown(id) { return !!coords[id]; }
+
+    // does point `pid` sit on a fully-placed segment with a named-variable distance
+    // to one of the endpoints? if so it can be parametrized by that single scalar.
+    function tryResolveAsVar(pid) {
+      const segC = constraints.find(c => (c.type === 'on_segment' || c.type === 'ratio') && c.targets && c.targets[0] === pid);
+      if (!segC) return null;
+      const a = segC.targets[1], b = segC.targets[2];
+      if (!(coordsKnown(a) && coordsKnown(b))) return null;
+      for (const [varName, al] of Object.entries(aliases)) {
+        if ((al.a === pid && al.b === a) || (al.a === a && al.b === pid)) return { varName, anchorId: a, otherId: b, src: segC, aliasSrc: al.src };
+        if ((al.a === pid && al.b === b) || (al.a === b && al.b === pid)) return { varName, anchorId: b, otherId: a, src: segC, aliasSrc: al.src };
+      }
+      return null;
+    }
+
+    // resolved[id] describes how to compute a point's coordinates from the unknown vector u
+    const resolved = {};
+    for (const id of Object.keys(coords)) resolved[id] = { kind: 'fixed', coord: coords[id] };
+
+    const varIndex = {}; // varName -> index into unknown vector u
+    const initialGuess = [];
+    function ensureVar(varName, guessValue) {
+      if (varIndex[varName] !== undefined) return varIndex[varName];
+      varIndex[varName] = initialGuess.length;
+      initialGuess.push(guessValue);
+      return varIndex[varName];
+    }
+
+    for (const p of leftover) {
+      const asVar = tryResolveAsVar(p.id);
+      if (asVar) {
+        const L = vLen(vSub(coords[asVar.otherId], coords[asVar.anchorId]));
+        const idx = ensureVar(asVar.varName, L / 2);
+        resolved[p.id] = { kind: 'var', varIdx: idx, anchorId: asVar.anchorId, otherId: asVar.otherId };
+        consumedIfPresent(asVar.src);
+        consumedIfPresent(asVar.aliasSrc);
+      }
+    }
+    function consumedIfPresent(c) { if (c) result.consumed.push(c); }
+
+    // rigid squares: if two adjacent vertices are already resolvable, the other two
+    // are fully determined by a +/-90 degree rotation of that edge — no unknowns needed.
+    const squareInfos = [];
+    for (const s of (json.shapes || [])) {
+      if (s.type !== 'square' || !s.points || s.points.length !== 4) continue;
+      const pts = s.points;
+      for (let k = 0; k < 4; k++) {
+        const b0 = pts[k], b1 = pts[(k + 1) % 4];
+        const d0 = pts[(k + 2) % 4], d1 = pts[(k + 3) % 4];
+        if ((resolved[b0] || coordsKnown(b0)) && (resolved[b1] || coordsKnown(b1))) {
+          if (!resolved[b0]) resolved[b0] = { kind: 'fixed', coord: coords[b0] };
+          if (!resolved[b1]) resolved[b1] = { kind: 'fixed', coord: coords[b1] };
+          resolved[d0] = { kind: 'derived', baseId0: b0, baseId1: b1, role: 'next' }; // d0 = b1 + rot(b1-b0)
+          resolved[d1] = { kind: 'derived', baseId0: b0, baseId1: b1, role: 'prev' }; // d1 = b0 + rot(b1-b0)
+          squareInfos.push({ shape: s, base0: b0, base1: b1, derived0: d0, derived1: d1 });
+          // a free-form "other" constraint that just restates "<shape> is a square"
+          // is now redundant with the shape-level rigidity above — don't report it.
+          const shapePtSet = new Set(s.points);
+          for (const c of constraints) {
+            if (c.type === 'other' && c.targets && c.targets.length === shapePtSet.size &&
+                c.targets.every(t => shapePtSet.has(t)) && new Set(c.targets).size === shapePtSet.size) {
+              result.consumed.push(c);
+            }
+          }
+          break;
+        }
+      }
+    }
+
+    // anything still unresolved among leftover points falls back to a free (x,y) unknown
+    for (const p of leftover) {
+      if (resolved[p.id]) continue;
+      const ix = ensureVar('__x_' + p.id, 0);
+      const iy = ensureVar('__y_' + p.id, 0);
+      resolved[p.id] = { kind: 'free', xIdx: ix, yIdx: iy };
+    }
+
+    // bail out if some leftover point still has no way to be expressed at all
+    // (shouldn't happen given the 'free' fallback, but guard anyway)
+    if (leftover.some(p => !resolved[p.id])) return result;
+
+    function coordOf(id, u, sign) {
+      const r = resolved[id];
+      if (!r) return coords[id];
+      if (r.kind === 'fixed') return r.coord;
+      if (r.kind === 'var') {
+        const anchor = coordOf(r.anchorId, u, sign);
+        const other = coordOf(r.otherId, u, sign);
+        const dir = vSub(other, anchor);
+        const L = vLen(dir);
+        const val = u[r.varIdx];
+        return L > 1e-9 ? vAdd(anchor, vScale(dir, val / L)) : anchor;
+      }
+      if (r.kind === 'free') return [u[r.xIdx], u[r.yIdx]];
+      if (r.kind === 'derived') {
+        const p0 = coordOf(r.baseId0, u, sign);
+        const p1 = coordOf(r.baseId1, u, sign);
+        const rotated = vRotateDeg(vSub(p1, p0), sign * 90);
+        return r.role === 'next' ? vAdd(p1, rotated) : vAdd(p0, rotated);
+      }
+      return [0, 0];
+    }
+
+    // --- residuals: linear equations + any remaining geometric constraints touching leftover points ---
+    const leftoverIds = new Set(leftover.map(p => p.id));
+    const usedForResiduals = [];
+
+    function buildResiduals(u, sign) {
+      const res = [];
+      for (const eq of equations) {
+        let sum = 0;
+        for (const t of eq.terms) sum += t.coef * u[varIndex[t.v]];
+        res.push(sum - eq.rhs);
+      }
+      for (const c of constraints) {
+        if (result.consumed.includes(c)) continue;
+        if (!c.targets || !c.targets.some(t => leftoverIds.has(t))) continue;
+        if (c.type === 'on_segment' && c.targets.length === 3) {
+          const [p, a, b] = c.targets;
+          if (resolved[p] && resolved[p].kind === 'derived') {
+            const P = coordOf(p, u, sign), A = coordOf(a, u, sign), B = coordOf(b, u, sign);
+            res.push(vCross(vSub(B, A), vSub(P, A)) / 100);
+            if (usedForResiduals.indexOf(c) === -1) usedForResiduals.push(c);
+          }
+        } else if (c.type === 'equal_length' && c.targets.length === 4) {
+          const [a, b, cc, d] = c.targets;
+          const L1 = vLen(vSub(coordOf(a, u, sign), coordOf(b, u, sign)));
+          const L2 = vLen(vSub(coordOf(cc, u, sign), coordOf(d, u, sign)));
+          res.push(L1 - L2);
+          if (usedForResiduals.indexOf(c) === -1) usedForResiduals.push(c);
+        } else if (c.type === 'length' && c.targets.length === 2 && parseNumber(c.value) !== null) {
+          const [a, b] = c.targets;
+          const L = vLen(vSub(coordOf(a, u, sign), coordOf(b, u, sign)));
+          res.push(L - parseNumber(c.value));
+          if (usedForResiduals.indexOf(c) === -1) usedForResiduals.push(c);
+        }
+      }
+      return res;
+    }
+
+    if (initialGuess.length === 0) return result; // nothing to solve
+
+    const signsToTry = squareInfos.length > 0 ? [1, -1] : [1];
+    let best = null;
+    for (const sign of signsToTry) {
+      const fn = (u) => buildResiduals(u, sign);
+      const probe = fn(initialGuess);
+      if (probe.length < initialGuess.length) continue; // underdetermined, no point trying
+      const { x, cost } = solveLeastSquares(fn, initialGuess, {});
+
+      let valid = cost < 1e-6;
+      // sanity filter: every on_segment-derived scalar variable should land within its segment
+      for (const [varName, idx] of Object.entries(varIndex)) {
+        if (varName.startsWith('__x_') || varName.startsWith('__y_')) continue;
+        const al = aliases[varName];
+        if (!al) continue;
+        const segLen = vLen(vSub(coords[al.b] || coordOf(al.b, x, sign), coords[al.a] || coordOf(al.a, x, sign)));
+        if (x[idx] < -1e-6 || x[idx] > segLen + 1e-6) valid = false;
+      }
+      // sanity filter: "내부의 점" hint vs an already-fixed enclosing polygon
+      for (const p of leftover) {
+        if (!/내부/.test(p.description || '')) continue;
+        for (const s of (json.shapes || [])) {
+          if ((s.type !== 'triangle' && s.type !== 'polygon') || !s.points) continue;
+          if (!s.points.every(id => coordsKnown(id))) continue;
+          const poly = s.points.map(id => coords[id]);
+          const pc = coordOf(p.id, x, sign);
+          if (!pointInPolygon(pc, poly)) valid = false;
+        }
+      }
+
+      const candidate = { sign, x, cost, valid };
+      if (!best || (candidate.valid && !best.valid) || (candidate.valid === best.valid && candidate.cost < best.cost)) {
+        best = candidate;
+      }
+    }
+
+    if (!best || best.cost > 1e-4) return result; // couldn't converge to a real solution
+
+    // emit GeoGebra commands for every leftover point, preferring symbolic/dynamic
+    // formulas over bare numbers so the construction stays editable in GeoGebra.
+    const varValueDesc = [];
+    for (const [varName, idx] of Object.entries(varIndex)) {
+      if (varName.startsWith('__x_') || varName.startsWith('__y_')) continue;
+      varValueDesc.push(`${varName}=${best.x[idx].toFixed(4).replace(/\.?0+$/, '')}`);
+    }
+
+    // emit in dependency order: 'var' points first (only depend on already-fixed
+    // anchors), then 'derived' points (depend on 'var'/'fixed' points), then 'free'.
+    const order = leftover.slice().sort((a, b) => {
+      const rank = r => r.kind === 'var' ? 0 : r.kind === 'derived' ? 1 : 2;
+      return rank(resolved[a.id]) - rank(resolved[b.id]);
+    });
+
+    for (const p of order) {
+      const r = resolved[p.id];
+      if (r.kind === 'var') {
+        const val = best.x[r.varIdx];
+        result.commands.push(`${ggName(p.id)}=${ggName(r.anchorId)}+(${val.toFixed(6)}/Distance(${ggName(r.anchorId)},${ggName(r.otherId)}))*(${ggName(r.otherId)}-${ggName(r.anchorId)})`);
+      } else if (r.kind === 'derived') {
+        const rotDeg = best.sign * 90;
+        const rotExpr = `Rotate(Vector(${ggName(r.baseId0)},${ggName(r.baseId1)}),${rotDeg}°)`;
+        result.commands.push(`${ggName(p.id)}=${ggName(r.role === 'next' ? r.baseId1 : r.baseId0)}+${rotExpr}`);
+      } else if (r.kind === 'free') {
+        const c = coordOf(p.id, best.x, best.sign);
+        result.commands.push(`${ggName(p.id)}=(${c[0].toFixed(4)},${c[1].toFixed(4)})`);
+      }
+      coords[p.id] = coordOf(p.id, best.x, best.sign);
+      result.placedIds.push(p.id);
+    }
+
+    for (const c of usedForResiduals) result.consumed.push(c);
+    for (const eq of equations) result.consumed.push(eq.src);
+    // a standalone "<point>는 ~ 내부의 점" constraint was already spent above as
+    // the branch-selection filter, even though it never enters buildResiduals.
+    for (const p of leftover) {
+      if (!/내부/.test(p.description || '')) continue;
+      for (const c of constraints) {
+        if (c.type === 'other' && c.targets && c.targets.length === 1 && c.targets[0] === p.id) result.consumed.push(c);
+      }
+    }
+
+    result.messages.push(`[솔버] ${leftover.map(p => p.id).join(',')}: 연립방정식으로 계산됨 (${varValueDesc.join(', ')})`);
+    return result;
+  }
+
+  // anything still unplaced (phase 3 couldn't solve it either): grid fallback
   let gridI = 0;
   for (const p of points) {
     if (placed.has(p.id)) continue;
@@ -725,14 +1128,12 @@ function buildGeoGebraCommands(json) {
     placed.add(p.id); gridI++;
   }
 
-  // shapes
   for (const s of (json.shapes || [])) {
     if (!s.points || s.points.length === 0) continue;
     const gpts = s.points.map(ggName);
     if (s.type === 'segment' && gpts.length === 2) {
       commands.push(`Segment(${gpts[0]},${gpts[1]})`);
     } else if (s.type === 'circle') {
-      // best effort: center = first point, radius from a length constraint to a second point, else through-point circle
       if (gpts.length >= 2) {
         const r = findLength(s.points[0], s.points[1]);
         if (r !== null) commands.push(`Circle(${gpts[0]},${r})`);
@@ -745,12 +1146,16 @@ function buildGeoGebraCommands(json) {
     }
   }
 
-  // constraints that couldn't be used for placement or shape drawing — surfaced, not silently dropped
-  // (length/angle/midpoint/on_segment/ratio drive placement directly; a perpendicular
-  // consumed by findPerpFoot is recorded in consumedConstraints so it isn't double-reported)
   const usedTypes = new Set(['length', 'angle', 'right_angle', 'midpoint', 'on_segment', 'ratio']);
   for (const c of constraints) {
     if (consumedConstraints.has(c)) continue;
+    // an equal_length constraint whose two sides already each have their own
+    // matching numeric length constraint is redundant, not unhandled.
+    if (c.type === 'equal_length' && c.targets && c.targets.length === 4) {
+      const l1 = findLength(c.targets[0], c.targets[1]);
+      const l2 = findLength(c.targets[2], c.targets[3]);
+      if (l1 !== null && l2 !== null && Math.abs(l1 - l2) < 1e-9) continue;
+    }
     if (!usedTypes.has(c.type) || c.type === 'other') {
       unresolved.push(`제약 미반영 [${c.type}] ${c.targets ? c.targets.join(',') : ''} ${c.value || ''} — ${c.description || ''}`);
     }
