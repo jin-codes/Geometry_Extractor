@@ -581,8 +581,12 @@ function extractLinearEquations(constraints, aliasNames) {
   const equations = [];
   for (const c of constraints) {
     if (c.type !== 'other') continue;
+    // The equation itself sometimes lands in value ("x+y=15") rather than description
+    // (which may instead read as prose, e.g. "합이 15" with no literal "=" to match on) —
+    // try value first since it's more likely to already be in a parseable clause.
     const desc = c.description || '';
-    for (const clause of desc.split(/[,.]|즉|그리고/)) {
+    const clauses = [String(c.value ?? '')].concat(desc.split(/[,.]|즉|그리고/));
+    for (const clause of clauses) {
       const eqMatch = clause.match(/([^=]+)=\s*(-?\d+(\.\d+)?)/);
       if (!eqMatch) continue;
       const terms = parseLinearTerms(eqMatch[1], aliasNames);
