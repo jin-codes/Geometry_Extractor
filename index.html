@@ -186,6 +186,16 @@
       <span class="status" id="constructStatus"></span>
     </div>
     <div id="unresolvedBox"></div>
+    <div class="status" style="margin-top: 8px;">
+      범례:
+      <span style="color:#14286e">● 확정된 점</span> ·
+      <span style="color:#278c46">● 자유 변수</span> ·
+      <span style="color:#e67e22">● 위치 불확실(수동 확인)</span> ·
+      <span style="color:#195aaa">━ 선분</span> ·
+      <span style="color:#009696">◯ 원</span> ·
+      <span style="color:#8232be">∠ 각</span> ·
+      <span style="color:#c81e78">∟ 직각</span>
+    </div>
     <div id="ggb-element" style="margin-top: 12px; min-height: 480px;"></div>
     <details class="schema" style="margin-top: 10px;">
       <summary>생성된 GeoGebra 명령 보기</summary>
@@ -1237,6 +1247,53 @@ function initGeoGebra() {
   });
 }
 
+// 작도 후 객체 종류별로 색/굵기/채움을 지정해 GeoGebra 화면에서 한눈에 구분되게 한다.
+// 점: 확정=진한 남색, 자유 변수=초록, 위치 불확실(underdetermined)=주황(큰 점) / 선분: 청색 /
+// 다각형: 도형마다 다른 옅은 채움 / 원: 청록 / 각: 보라 / 직각: 마젠타. 보조 원(circ_*)은 숨긴다.
+const GGB_FILL_COLORS = [[230, 126, 34], [39, 174, 96], [142, 68, 173], [41, 128, 185], [192, 57, 43]];
+function styleGeoGebra(json) {
+  const info = {};
+  for (const p of (json.points || [])) info[ggName(p.id)] = p;
+  const under = new Set((json.underdetermined || []).map(u => ggName(u.point)));
+  let polyIdx = 0;
+  for (const name of ggbApplet.getAllObjectNames()) {
+    const type = ggbApplet.getObjectType(name);
+    try {
+      if (name.startsWith('circ_')) { ggbApplet.setVisible(name, false); continue; }
+      if (type === 'point') {
+        const p = info[name];
+        let rgb = [20, 40, 110], size = 5;
+        if (under.has(name) || (p && !p.determined && !p.free)) { rgb = [230, 126, 34]; size = 8; }
+        else if (p && p.free) { rgb = [39, 140, 70]; }
+        ggbApplet.setColor(name, ...rgb);
+        ggbApplet.setPointSize(name, size);
+        ggbApplet.setLabelVisible(name, true);
+      } else if (type === 'segment') {
+        ggbApplet.setColor(name, 25, 90, 170);
+        ggbApplet.setLineThickness(name, 5);
+        ggbApplet.setLabelVisible(name, false);
+      } else if (/^(polygon|triangle|quadrilateral|pentagon|hexagon)$/.test(type)) {  // GeoGebra는 3·4각형 등을 별도 타입명으로 돌려준다
+        const c = GGB_FILL_COLORS[polyIdx++ % GGB_FILL_COLORS.length];
+        ggbApplet.setColor(name, ...c);
+        ggbApplet.setFilling(name, 0.15);
+        ggbApplet.setLabelVisible(name, false);
+      } else if (type === 'circle' || type === 'conic') {
+        ggbApplet.setColor(name, 0, 150, 150);
+        ggbApplet.setLineThickness(name, 5);
+        ggbApplet.setLabelVisible(name, false);
+      } else if (type === 'angle') {
+        const right = Math.abs(ggbApplet.getValue(name) - Math.PI / 2) < 1e-6;
+        ggbApplet.setColor(name, ...(right ? [200, 30, 120] : [130, 50, 190]));
+        ggbApplet.setFilling(name, 0.25);
+        ggbApplet.setLabelVisible(name, !right);
+      } else if (type === 'line' || type === 'ray' || type === 'vector') {
+        ggbApplet.setColor(name, 90, 90, 90);
+        ggbApplet.setLineThickness(name, 3);
+      }
+    } catch (e) { /* 스타일 실패는 작도 결과에 영향 없음 */ }
+  }
+}
+
 async function runConstruction() {
   if (!lastExtracted) { setConstructStatus('먼저 문제를 추출하세요.', 'error'); return; }
 
@@ -1263,6 +1320,8 @@ async function runConstruction() {
         unresolved.push(`명령 실행 실패: ${cmd} — ${e.message || e}`);
       }
     }
+
+    styleGeoGebra(lastExtracted);
 
     if (unresolved.length > 0) {
       const box = document.createElement('div');
