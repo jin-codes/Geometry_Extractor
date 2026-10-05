@@ -6,13 +6,18 @@
 <title>기하 문제 → 구조화 JSON 추출기</title>
 <style>
   :root {
-    --bg: #f7f7f5;
-    --panel: #ffffff;
-    --border: #e3e2de;
-    --text: #2b2a27;
-    --muted: #8a8880;
-    --accent: #c96442;
-    --accent-dark: #b0552f;
+    /* Stone path 팔레트: #A49A87 #A5A58D #968F83 #E8E5DF */
+    --bg: #e8e5df;
+    --panel: #f6f4f0;
+    --border: #cfcabe;
+    --text: #2e2c28;
+    --muted: #6f6a5d;
+    --accent: #7b7566;
+    --accent-dark: #5f5a4d;
+    --sage: #a5a58d;
+    --taupe: #a49a87;
+    --stone: #968f83;
+    --field: #fbfaf7;
     --mono: 'SF Mono', 'Menlo', 'Consolas', monospace;
   }
   * { box-sizing: border-box; }
@@ -50,7 +55,7 @@
     border-radius: 6px;
     font-size: 13px;
     font-family: var(--mono);
-    background: #fbfaf8;
+    background: var(--field);
   }
   textarea {
     width: 100%;
@@ -62,6 +67,8 @@
     line-height: 1.5;
     resize: vertical;
     font-family: inherit;
+    background: var(--field);
+    color: var(--text);
   }
 
   .row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
@@ -82,12 +89,12 @@
 
   .toolbar { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
   .status { font-size: 13px; color: var(--muted); }
-  .status.error { color: #b3261e; }
-  .status.ok { color: #2e7d32; }
+  .status.error { color: #9c3b2e; }
+  .status.ok { color: #5a6342; }
 
   pre#output {
-    background: #1e1e1c;
-    color: #e9e7e1;
+    background: #2f2d29;
+    color: #e8e5df;
     padding: 16px;
     border-radius: 8px;
     font-family: var(--mono);
@@ -104,7 +111,7 @@
   details.schema { font-size: 12px; color: var(--muted); }
   details.schema summary { cursor: pointer; }
   details.schema pre {
-    background: #fbfaf8;
+    background: var(--field);
     border: 1px solid var(--border);
     padding: 10px;
     border-radius: 6px;
@@ -115,9 +122,9 @@
 
   .underdetermined-tag {
     display: inline-block;
-    background: #fff3e0;
-    color: #b3541e;
-    border: 1px solid #f0c896;
+    background: #e6e0d2;
+    color: #6b5a36;
+    border: 1px solid var(--taupe);
     border-radius: 4px;
     padding: 1px 6px;
     font-size: 11px;
@@ -125,12 +132,12 @@
   }
 
   .warn-box {
-    background: #fff8e1;
-    border: 1px solid #f0d896;
+    background: #ece9dc;
+    border: 1px solid var(--sage);
     border-radius: 6px;
     padding: 10px 12px;
     font-size: 12.5px;
-    color: #6b5015;
+    color: #55553f;
     margin-top: 10px;
   }
 </style>
@@ -1348,7 +1355,7 @@ function renderCompareResult(obj) {
   compareResult.innerHTML = '';
   const badge = document.createElement('div');
   const typeLabel = { none: '차이 없음', numeric: '수치 차이', structural: '구조 차이', mixed: '수치+구조 차이' }[obj.diff_type] || obj.diff_type;
-  const typeColor = { none: '#2e7d32', numeric: '#b3541e', structural: '#b3261e', mixed: '#b3261e' }[obj.diff_type] || 'var(--muted)';
+  const typeColor = { none: '#5a6342', numeric: '#8a6d2f', structural: '#9c3b2e', mixed: '#9c3b2e' }[obj.diff_type] || 'var(--muted)';
   badge.innerHTML = `<strong style="color:${typeColor}">${escapeHtml(typeLabel)}</strong>`;
   compareResult.appendChild(badge);
 
