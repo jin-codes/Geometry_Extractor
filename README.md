@@ -2,6 +2,8 @@
 
 평면기하 문제를 텍스트로 입력받아 조건을 구조화하고, GeoGebra 작도로 재구성하는 도구.
 
+> **English:** Turns a plane-geometry problem (text) into structured JSON, then rebuilds it as a GeoGebra construction. The UI is bilingual — use the 한국어 / English switch at the top right (or append `?lang=en` to the URL). Problems can be entered in Korean or English; the app is a single HTML file with no server, and you bring your own Anthropic API key (stored only in your browser).
+
 ## 배경
 
 평면 기하 도형 파싱(이미지 → 구조)은 학계에서도 미해결에 가까운 문제입니다. 이 프로젝트는 그림을 직접 파싱하는 대신, 문제 **텍스트**를 1차 소스로 삼습니다. 

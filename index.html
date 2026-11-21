@@ -8,213 +8,339 @@
   :root {
     /* Stone path 팔레트: #A49A87 #A5A58D #968F83 #E8E5DF */
     --bg: #e8e5df;
-    --panel: #f6f4f0;
-    --border: #cfcabe;
-    --text: #2e2c28;
+    --bg-glow: #f3f1ec;
+    --panel: #faf9f6;
+    --border: #d9d4c8;
+    --border-strong: #c3bcae;
+    --text: #2b2924;
     --muted: #6f6a5d;
-    --accent: #7b7566;
-    --accent-dark: #5f5a4d;
+    --accent: #6f695a;
+    --accent-dark: #55503f;
+    --accent-ring: rgba(165, 165, 141, 0.45);
     --sage: #a5a58d;
     --taupe: #a49a87;
     --stone: #968f83;
-    --field: #fbfaf7;
+    --field: #ffffff;
+    --code-bg: #2b2925;
+    --code-text: #ebe8e1;
+    --warn-bg: #f1eedf;
+    --warn-text: #55553f;
+    --tag-bg: #ece6d6;
+    --tag-text: #6b5a36;
+    --err: #9c3b2e;
+    --ok: #5a6342;
+    --shadow: 0 1px 2px rgba(60, 52, 36, 0.06), 0 8px 24px -12px rgba(60, 52, 36, 0.18);
+    --radius: 14px;
     --mono: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1f1e1b;
+      --bg-glow: #292720;
+      --panel: #2a2824;
+      --border: #3c3932;
+      --border-strong: #4d493f;
+      --text: #ece9e2;
+      --muted: #a29c8d;
+      --accent: #a5a58d;
+      --accent-dark: #bcbca3;
+      --accent-ring: rgba(165, 165, 141, 0.4);
+      --field: #211f1c;
+      --code-bg: #171614;
+      --code-text: #e3e0d8;
+      --warn-bg: #34322a;
+      --warn-text: #d3d0b8;
+      --tag-bg: #3a3527;
+      --tag-text: #d9c79a;
+      --err: #e08a7b;
+      --ok: #aab88a;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+      color-scheme: dark;
+    }
   }
   * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
   body {
     margin: 0;
-    background: var(--bg);
+    min-height: 100vh;
+    background: radial-gradient(1200px 500px at 50% -120px, var(--bg-glow), transparent 70%), var(--bg);
     color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    padding: 24px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+    font-size: 14px;
+    line-height: 1.55;
+    padding: 40px 20px 24px;
+    -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 1100px; margin: 0 auto; }
-  h1 { font-size: 20px; margin: 0 0 4px; }
-  .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .wrap { max-width: 980px; margin: 0 auto; }
+
+  .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 28px; }
+  h1 { font-size: 28px; line-height: 1.2; letter-spacing: -0.02em; font-weight: 700; margin: 0 0 8px; }
+  .sub { color: var(--muted); font-size: 14px; max-width: 640px; }
+  .head .sub { margin-bottom: 0; }
+
+  .lang-switch {
+    display: inline-flex; padding: 3px; gap: 2px; flex-shrink: 0;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 999px; box-shadow: var(--shadow);
+  }
+  .lang-switch button {
+    background: transparent; color: var(--muted); padding: 5px 14px; font-size: 12px; font-weight: 600;
+    border-radius: 999px; box-shadow: none;
+  }
+  .lang-switch button:hover { background: transparent; color: var(--text); transform: none; box-shadow: none; }
+  .lang-switch button.active { background: var(--accent); color: #fff; }
+  .lang-switch button.active:hover { background: var(--accent-dark); color: #fff; }
+  @media (prefers-color-scheme: dark) { .lang-switch button.active, .lang-switch button.active:hover { color: #1f1e1b; } }
 
   .panel {
     background: var(--panel);
     border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px;
-    margin-bottom: 16px;
+    border-radius: var(--radius);
+    padding: 22px 24px;
+    margin-bottom: 18px;
+    box-shadow: var(--shadow);
   }
   .panel h2 {
-    font-size: 13px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 12px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em;
     color: var(--muted);
-    margin: 0 0 12px;
+    margin: 0 0 16px;
   }
+  .panel h2[data-step]::before {
+    content: attr(data-step);
+    display: inline-grid; place-items: center;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--accent); color: #fff;
+    font-size: 11px; letter-spacing: 0;
+  }
+  @media (prefers-color-scheme: dark) { .panel h2[data-step]::before { color: #1f1e1b; } }
 
-  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
   input[type=password], input[type=text] {
     width: 100%;
-    padding: 8px 10px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
+    padding: 10px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
     font-size: 13px;
     font-family: var(--mono);
     background: var(--field);
+    color: var(--text);
+    transition: border-color .15s, box-shadow .15s;
   }
+  input[type=file] { font-size: 13px; color: var(--muted); max-width: 100%; }
+  input[type=file]::file-selector-button {
+    margin-right: 10px; padding: 7px 14px; border-radius: 8px; border: 1px solid var(--border-strong);
+    background: var(--field); color: var(--text); font-size: 12px; font-weight: 600; cursor: pointer;
+  }
+  input[type=file]::file-selector-button:hover { border-color: var(--accent); }
   textarea {
     width: 100%;
-    min-height: 160px;
-    padding: 10px 12px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    font-size: 14px;
-    line-height: 1.5;
+    min-height: 170px;
+    padding: 14px 16px;
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    font-size: 15px;
+    line-height: 1.65;
     resize: vertical;
     font-family: inherit;
     background: var(--field);
     color: var(--text);
+    transition: border-color .15s, box-shadow .15s;
+  }
+  input::placeholder, textarea::placeholder { color: var(--stone); opacity: .8; }
+  input:focus, textarea:focus, button:focus-visible, summary:focus-visible {
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring);
   }
 
-  .row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+  .row { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
   .row > div { flex: 1; min-width: 200px; }
 
   button {
     background: var(--accent);
-    color: white;
+    color: #fff;
     border: none;
-    padding: 10px 18px;
-    border-radius: 6px;
+    padding: 10px 20px;
+    border-radius: 8px;
     font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
     cursor: pointer;
-    font-weight: 500;
+    box-shadow: 0 1px 2px rgba(60, 52, 36, 0.25);
+    transition: background .15s, transform .08s, box-shadow .15s;
   }
   button:hover { background: var(--accent-dark); }
-  button:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+  button:active { transform: translateY(1px); box-shadow: none; }
+  button:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; box-shadow: none; transform: none; }
+  @media (prefers-color-scheme: dark) { button:not(:disabled) { color: #1f1e1b; } .lang-switch button:not(.active) { color: var(--muted); } }
 
-  .toolbar { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+  .toolbar { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
   .status { font-size: 13px; color: var(--muted); }
-  .status.error { color: #9c3b2e; }
-  .status.ok { color: #5a6342; }
+  .status.error { color: var(--err); font-weight: 500; }
+  .status.ok { color: var(--ok); font-weight: 500; }
 
   pre#output {
-    background: #2f2d29;
-    color: #e8e5df;
-    padding: 16px;
-    border-radius: 8px;
+    background: var(--code-bg);
+    color: var(--code-text);
+    padding: 18px 20px;
+    border-radius: 10px;
     font-family: var(--mono);
     font-size: 12.5px;
-    line-height: 1.55;
+    line-height: 1.65;
     overflow-x: auto;
     white-space: pre-wrap;
     word-break: break-word;
     min-height: 80px;
+    margin: 0;
+    max-height: 520px;
+    overflow-y: auto;
   }
 
   .empty-hint { color: var(--muted); font-size: 13px; }
+  pre#output .empty-hint { color: #9a9486; }
 
-  details.schema { font-size: 12px; color: var(--muted); }
-  details.schema summary { cursor: pointer; }
+  details.schema { font-size: 13px; color: var(--muted); }
+  details.schema summary { cursor: pointer; font-weight: 600; border-radius: 6px; padding: 2px 0; }
+  details.schema summary:hover { color: var(--text); }
   details.schema pre {
     background: var(--field);
     border: 1px solid var(--border);
-    padding: 10px;
-    border-radius: 6px;
-    font-size: 11.5px;
+    color: var(--text);
+    padding: 14px 16px;
+    border-radius: 10px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.6;
     overflow-x: auto;
-    margin-top: 8px;
+    margin: 10px 0 0;
   }
 
   .underdetermined-tag {
-    display: inline-block;
-    background: #e6e0d2;
-    color: #6b5a36;
-    border: 1px solid var(--taupe);
-    border-radius: 4px;
-    padding: 1px 6px;
-    font-size: 11px;
-    margin-left: 6px;
+    display: inline-block; background: var(--tag-bg); color: var(--tag-text);
+    border: 1px solid var(--taupe); border-radius: 4px; padding: 1px 6px; font-size: 11px; margin-left: 6px;
   }
 
   .warn-box {
-    background: #ece9dc;
-    border: 1px solid var(--sage);
-    border-radius: 6px;
-    padding: 10px 12px;
-    font-size: 12.5px;
-    color: #55553f;
-    margin-top: 10px;
+    background: var(--warn-bg);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--sage);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--warn-text);
+    margin: 0 0 12px;
+  }
+
+  .legend {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px;
+    margin-top: 14px; font-size: 12px;
+  }
+  .legend > span {
+    padding: 3px 10px; border-radius: 999px; font-weight: 600;
+    background: var(--field); border: 1px solid var(--border);
+  }
+  .legend > span:not(:first-child) { background: #f6f4f0; }  /* fixed light chip: legend colors match GeoGebra's, tuned for light bg */
+  .legend > span:first-child { background: none; border: none; padding-left: 0; color: var(--muted); }
+  #ggb-element { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #fff; }
+
+  #ggb-element:empty { display: none; }  /* no blank frame before the first construction */
+  footer a { text-decoration: none; font-weight: 600; }
+  footer a:hover { text-decoration: underline; }
+
+  @media (max-width: 640px) {
+    body { padding: 24px 14px 16px; }
+    h1 { font-size: 22px; }
+    .head { flex-direction: column; gap: 14px; margin-bottom: 20px; }
+    .panel { padding: 16px; border-radius: 12px; }
+    .row > div { min-width: 100%; }
+    button { width: 100%; }
+    .lang-switch button { width: auto; }
+    .toolbar { flex-direction: column; align-items: stretch; }
   }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>기하 문제 → 구조화 JSON 추출기</h1>
-  <div class="sub">파이프라인 1단계 프로토타입. 문제 텍스트를 points / shapes / constraints / underdetermined / notes 스키마로 구조화합니다.</div>
+  <div class="head">
+    <div>
+      <h1 data-i18n="h1">기하 문제 → 구조화 JSON 추출기</h1>
+      <div class="sub" data-i18n="sub">파이프라인 1단계 프로토타입. 문제 텍스트를 points / shapes / constraints / underdetermined / notes 스키마로 구조화합니다.</div>
+    </div>
+    <div class="lang-switch" role="group" aria-label="Language">
+      <button type="button" data-lang="ko">한국어</button>
+      <button type="button" data-lang="en">English</button>
+    </div>
+  </div>
 
   <div class="panel">
-    <h2>API 설정</h2>
+    <h2 data-i18n="apiSettings">API 설정</h2>
     <div class="row">
       <div style="flex: 2;">
         <label for="apiKey">Anthropic API Key</label>
         <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off">
       </div>
       <div>
-        <label for="model">모델</label>
+        <label for="model" data-i18n="model">모델</label>
         <input type="text" id="model" value="claude-sonnet-4-5-20250929">
       </div>
     </div>
-    <div style="font-size: 11.5px; color: var(--muted); margin-top: 8px;">
+    <div style="font-size: 11.5px; color: var(--muted); margin-top: 8px;" data-i18n="keyNote">
       키는 브라우저에만 저장되며(localStorage) 서버로 전송되지 않습니다. API 호출은 브라우저에서 Anthropic API로 직접 이루어집니다.
     </div>
   </div>
 
   <div class="panel">
-    <h2>문제 입력</h2>
-    <textarea id="problemText" placeholder="예: 삼각형 ABC에서 AB=5, AC=7, 각 A = 60도이다. 변 BC 위의 점 D에 대해 AD가 각 A를 이등분할 때..."></textarea>
+    <h2 data-step="1" data-i18n="problemInput">문제 입력</h2>
+    <textarea id="problemText" data-i18n-ph="problemPh" placeholder="예: 삼각형 ABC에서 AB=5, AC=7, 각 A = 60도이다. 변 BC 위의 점 D에 대해 AD가 각 A를 이등분할 때..."></textarea>
     <div class="toolbar">
-      <button id="extractBtn">구조화 추출</button>
+      <button id="extractBtn" data-i18n="extractBtn">구조화 추출</button>
       <span class="status" id="status"></span>
     </div>
   </div>
 
   <div class="panel">
-    <h2>결과 (JSON)</h2>
+    <h2 data-i18n="resultJson">결과 (JSON)</h2>
     <div id="warnBox"></div>
-    <pre id="output"><span class="empty-hint">아직 추출 결과 없음</span></pre>
+    <pre id="output"><span class="empty-hint" data-i18n="noResult">아직 추출 결과 없음</span></pre>
   </div>
 
   <div class="panel">
-    <h2>GeoGebra 작도 (2단계, 규칙 기반 변환)</h2>
+    <h2 data-step="2" data-i18n="ggbTitle">GeoGebra 작도 (2단계, 규칙 기반 변환)</h2>
     <div class="toolbar" style="margin-top: 0;">
-      <button id="constructBtn" disabled>GeoGebra로 작도</button>
+      <button id="constructBtn" data-i18n="constructBtn" disabled>GeoGebra로 작도</button>
       <span class="status" id="constructStatus"></span>
     </div>
     <div id="unresolvedBox"></div>
-    <div class="status" style="margin-top: 8px;">
-      범례:
-      <span style="color:#14286e">● 확정된 점</span> ·
-      <span style="color:#278c46">● 자유 변수</span> ·
-      <span style="color:#e67e22">● 위치 불확실(수동 확인)</span> ·
-      <span style="color:#195aaa">━ 선분</span> ·
-      <span style="color:#009696">◯ 원</span> ·
-      <span style="color:#8232be">∠ 각</span> ·
-      <span style="color:#c81e78">∟ 직각</span>
+    <div class="legend">
+      <span data-i18n="legendLabel">범례:</span>
+      <span style="color:#14286e" data-i18n="legDetermined">● 확정된 점</span>
+      <span style="color:#278c46" data-i18n="legFree">● 자유 변수</span>
+      <span style="color:#e67e22" data-i18n="legUncertain">● 위치 불확실(수동 확인)</span>
+      <span style="color:#195aaa" data-i18n="legSegment">━ 선분</span>
+      <span style="color:#009696" data-i18n="legCircle">◯ 원</span>
+      <span style="color:#8232be" data-i18n="legAngle">∠ 각</span>
+      <span style="color:#c81e78" data-i18n="legRight">∟ 직각</span>
     </div>
     <div id="ggb-element" style="margin-top: 12px; min-height: 480px;"></div>
     <details class="schema" style="margin-top: 10px;">
-      <summary>생성된 GeoGebra 명령 보기</summary>
-      <pre id="ggbCommandsOut">(아직 없음)</pre>
+      <summary data-i18n="showCmds">생성된 GeoGebra 명령 보기</summary>
+      <pre id="ggbCommandsOut" data-i18n="cmdsNone">(아직 없음)</pre>
     </details>
   </div>
 
   <div class="panel">
-    <h2>원본과 비교 (3단계)</h2>
-    <div class="sub" style="margin-bottom: 12px;">GeoGebra 작도 결과를 원본 문제의 그림과 비전 모델로 비교해, 단순 수치 차이인지 배치/구조 차이인지 구분합니다.</div>
+    <h2 data-step="3" data-i18n="compareTitle">원본과 비교 (3단계)</h2>
+    <div class="sub" style="margin-bottom: 16px;" data-i18n="compareSub">GeoGebra 작도 결과를 원본 문제의 그림과 비전 모델로 비교해, 단순 수치 차이인지 배치/구조 차이인지 구분합니다.</div>
     <div class="row">
       <div>
-        <label for="originalImage">원본 문제 이미지</label>
+        <label for="originalImage" data-i18n="origImage">원본 문제 이미지</label>
         <input type="file" id="originalImage" accept="image/*">
       </div>
     </div>
     <div id="originalPreview" style="margin-top: 10px;"></div>
     <div class="toolbar">
-      <button id="compareBtn" disabled>비교 실행</button>
+      <button id="compareBtn" data-i18n="compareBtn" disabled>비교 실행</button>
       <span class="status" id="compareStatus"></span>
     </div>
     <div id="compareResult" style="margin-top: 12px;"></div>
@@ -222,31 +348,8 @@
 
   <div class="panel">
     <details class="schema">
-      <summary>스키마 정의 보기</summary>
-      <pre>{
-  "points": [
-    { "id": "A", "determined": true | false,
-      "free": true | false,          // 위치가 안 중요한 자유 변수인가
-      "description": "설명 (예: 'AC 위의 점, 정확한 위치가 필요하지만 텍스트에 없음')" }
-  ],
-  "shapes": [
-    { "type": "triangle | circle | polygon | segment | ...",
-      "points": ["A","B","C"], "id": "선택적 id" }
-  ],
-  "constraints": [
-    { "type": "length | angle | right_angle | parallel | perpendicular |
-                equal_length | equal_angle | midpoint | ratio | collinear |
-                on_segment | tangent | distance | area | other",
-      "targets": ["A","B"], "value": "5 또는 60deg 등, 없으면 null",
-      "description": "원문 근거" }
-  ],
-  "underdetermined": [
-    { "point": "D",
-      "reason": "텍스트만으로 위치가 결정되지 않고, 결과에 영향을 줄 수 있음",
-      "question": "비전 모델에 던질 좁은 질문" }
-  ],
-  "notes": "모호하거나 특이한 점에 대한 자유 서술"
-}</pre>
+      <summary data-i18n="schemaSummary">스키마 정의 보기</summary>
+      <pre data-i18n="schemaPre"></pre>
     </details>
   </div>
 </div>
@@ -256,7 +359,7 @@
 </footer>
 
 <script>
-const SYSTEM_PROMPT = `너는 평면기하 문제 텍스트를 구조화된 JSON으로 변환하는 전문가다.
+const SYSTEM_PROMPT_KO = `너는 평면기하 문제 텍스트를 구조화된 JSON으로 변환하는 전문가다.
 
 규칙:
 1. 반드시 아래 스키마의 JSON 객체 하나만 출력한다. 다른 설명, 마크다운 코드펜스, 서두/맺음말 없이 순수 JSON만 출력한다.
@@ -294,6 +397,270 @@ const SYSTEM_PROMPT = `너는 평면기하 문제 텍스트를 구조화된 JSON
   "notes": string
 }`;
 
+const SYSTEM_PROMPT_EN = `You are an expert at converting plane-geometry problem text into structured JSON.
+
+Rules:
+1. Output exactly one JSON object following the schema below. No other explanation, no markdown code fences, no preamble or closing remarks — pure JSON only.
+2. Never invent values that do not explicitly appear in the text (no hallucination). If something is unknown, use null or an empty array.
+3. Classify each point into one of three kinds:
+   - determined=true: its position/relationships are fully determined by the text alone
+   - determined=false, free=true: a free variable whose position does not matter, e.g. "an arbitrary point"
+   - determined=false, free=false: the position affects the answer but is not stated precisely in the text → also add it to the underdetermined array, and write a narrow question (question) that could only be answered by looking at the figure.
+4. The constraint type must be one of this enum: length, angle, right_angle, parallel, perpendicular, equal_length, equal_angle, midpoint, ratio, collinear, on_segment, tangent, distance, area, other.
+   If nothing in the enum fits, use other and describe it concretely in description.
+   Because a later stage mechanically converts these into GeoGebra constructions, you MUST follow the targets point-order conventions below:
+   - length: targets=[P,Q] → length of segment PQ. value is the number only (no units). However, if the problem names this length with a single-letter variable ("let PQ = x", "let x be the length of PQ", etc.), put that single-letter variable name in value (e.g. "x") — other constraints (e.g. "x+y=15") may reference this variable, so do not leave it null.
+   - angle: targets=[vertex,point1,point2] → the angle point1-vertex-point2. value is the number of degrees only.
+   - right_angle: targets=[vertex,point1,point2] → same as above, fixed at 90 degrees.
+   - midpoint: targets=[midpoint,end1,end2] → the midpoint of end1-end2.
+   - on_segment: targets=[point,end1,end2] → the point lies on segment end1-end2. value is the ratio measured from end1 (0 to 1, e.g. "0.5"), or null if unknown.
+   - ratio: targets=[point,end1,end2] → same form as on_segment, but value is expressed as a ratio like "1:2".
+   - parallel: targets=[A,B,C,D] → line AB is parallel to line CD.
+   - perpendicular: targets=[A,B,C,D] → line AB is perpendicular to line CD.
+   - equal_length: targets=[A,B,C,D] → segments AB and CD have equal length. If the shared length is given as a concrete number ("AB=CD=24", etc.), put that number in value (e.g. "24") — without it the actual size of the figure is unknown, so do not leave it null.
+   - equal_angle: targets=[V1,P1,P2,V2,P3,P4] → angle(P1,V1,P2) equals angle(P3,V2,P4).
+   - collinear: targets=[A,B,C,...] → the listed points lie on one line.
+   - tangent: targets=[two points of the line or a point on the circle, center of the circle] → describe concretely in description.
+   - distance, area, other: free-form, but describe concretely in description so it can be reproduced in GeoGebra.
+   The order of shapes' points arrays also matters: list polygon/parallelogram vertices in order along the sides (adjacent vertices, clockwise or counter-clockwise). For example, parallelogram ABCD must be points=["A","B","C","D"], so that AB and CD form one pair of parallel sides and BC and DA the other.
+5. In each constraint's description, briefly note which part of the original text it came from.
+6. In notes, freely write any ambiguity or peculiarity that does not fit the schema cleanly. If there is none, use an empty string.
+7. Write the free-text fields (description, reason, question, notes) in the same language as the problem text.
+
+Output only a single JSON object of this form:
+{
+  "points": [{ "id": string, "determined": boolean, "free": boolean, "description": string }],
+  "shapes": [{ "type": string, "points": string[], "id": string|null }],
+  "constraints": [{ "type": string, "targets": string[], "value": string|null, "description": string }],
+  "underdetermined": [{ "point": string, "reason": string, "question": string }],
+  "notes": string
+}`;
+
+// ---------------------------------------------------------------
+// i18n (ko / en). Static text uses data-i18n / data-i18n-ph attributes;
+// runtime messages go through t(key, vars). Heuristic regexes further down
+// match BOTH Korean and English phrasing regardless of the UI language.
+// ---------------------------------------------------------------
+let LANG = (() => {
+  let fromUrl = null;
+  try { fromUrl = new URLSearchParams(location.search).get('lang'); } catch (e) { /* ignore */ }
+  if (fromUrl === 'ko' || fromUrl === 'en') return fromUrl;
+  const saved = safeGet('ge_lang');
+  if (saved === 'ko' || saved === 'en') return saved;
+  return (navigator.language || '').toLowerCase().startsWith('ko') ? 'ko' : 'en';
+})();
+
+const I18N = {
+  ko: {
+    h1: '기하 문제 → 구조화 JSON 추출기',
+    sub: '파이프라인 1단계 프로토타입. 문제 텍스트를 points / shapes / constraints / underdetermined / notes 스키마로 구조화합니다.',
+    apiSettings: 'API 설정',
+    model: '모델',
+    keyNote: '키는 브라우저에만 저장되며(localStorage) 서버로 전송되지 않습니다. API 호출은 브라우저에서 Anthropic API로 직접 이루어집니다.',
+    problemInput: '문제 입력',
+    problemPh: '예: 삼각형 ABC에서 AB=5, AC=7, 각 A = 60도이다. 변 BC 위의 점 D에 대해 AD가 각 A를 이등분할 때...',
+    extractBtn: '구조화 추출',
+    resultJson: '결과 (JSON)',
+    noResult: '아직 추출 결과 없음',
+    ggbTitle: 'GeoGebra 작도 (2단계, 규칙 기반 변환)',
+    constructBtn: 'GeoGebra로 작도',
+    legendLabel: '범례:',
+    legDetermined: '● 확정된 점',
+    legFree: '● 자유 변수',
+    legUncertain: '● 위치 불확실(수동 확인)',
+    legSegment: '━ 선분',
+    legCircle: '◯ 원',
+    legAngle: '∠ 각',
+    legRight: '∟ 직각',
+    showCmds: '생성된 GeoGebra 명령 보기',
+    cmdsNone: '(아직 없음)',
+    cmdsEmpty: '(생성된 명령 없음)',
+    compareTitle: '원본과 비교 (3단계)',
+    compareSub: 'GeoGebra 작도 결과를 원본 문제의 그림과 비전 모델로 비교해, 단순 수치 차이인지 배치/구조 차이인지 구분합니다.',
+    origImage: '원본 문제 이미지',
+    compareBtn: '비교 실행',
+    schemaSummary: '스키마 정의 보기',
+    schemaPre: `{
+  "points": [
+    { "id": "A", "determined": true | false,
+      "free": true | false,          // 위치가 안 중요한 자유 변수인가
+      "description": "설명 (예: 'AC 위의 점, 정확한 위치가 필요하지만 텍스트에 없음')" }
+  ],
+  "shapes": [
+    { "type": "triangle | circle | polygon | segment | ...",
+      "points": ["A","B","C"], "id": "선택적 id" }
+  ],
+  "constraints": [
+    { "type": "length | angle | right_angle | parallel | perpendicular |
+                equal_length | equal_angle | midpoint | ratio | collinear |
+                on_segment | tangent | distance | area | other",
+      "targets": ["A","B"], "value": "5 또는 60deg 등, 없으면 null",
+      "description": "원문 근거" }
+  ],
+  "underdetermined": [
+    { "point": "D",
+      "reason": "텍스트만으로 위치가 결정되지 않고, 결과에 영향을 줄 수 있음",
+      "question": "비전 모델에 던질 좁은 질문" }
+  ],
+  "notes": "모호하거나 특이한 점에 대한 자유 서술"
+}`,
+    // runtime messages
+    underWarn: v => `<strong>underdetermined 점 ${v.n}개</strong> — 텍스트만으로 위치가 정해지지 않고 결과에 영향을 줄 수 있는 점입니다. 각 항목의 question을 확인하세요.`,
+    errNoKey: 'API 키를 입력하세요.',
+    errNoText: '문제 텍스트를 입력하세요.',
+    extracting: '추출 중...',
+    apiError: v => `API 오류 (${v.status}): ${v.err}`,
+    parseFail: 'JSON 파싱 실패 — 원문을 그대로 표시합니다.',
+    done: '완료',
+    errorOccurred: '오류 발생',
+    unresDefaultLen: v => `${v.p}-${v.q}: 문제에 길이 조건이 없어 임의로 ${v.len}로 배치 (답이 길이에 의존하지 않는 문제라면 무시해도 됨)`,
+    unresRotate: v => `${v.p}: ${v.vertex} 기준 ${v.ref} 방향에서 회전시켜 근사 배치 — 방향(부호) 확인 필요`,
+    unresDerived: v => `${v.p}: 절대 길이는 임의 기준(${v.vertex}-${v.ref}=${v.len})에 맞춘 것이지만, 다른 각도 조건으로부터 ${v.vertex}-${v.p} 비율은 정확히 역산함`,
+    unresAngleOnly: v => `${v.p}: 길이 조건이 없어 ${v.vertex}에서 거리 ${v.len}로 임의 배치 (각도만 문제라면 무시 가능), 방향 확인 필요`,
+    unresMid: v => `${v.p}: ${v.a}-${v.b} 위의 점인데 정확한 비율이 텍스트에 없어 중점으로 임의 배치 — 수동 확인 필요`,
+    solverMsg: v => `[솔버] ${v.ids}: 연립방정식으로 계산됨 (${v.vals})${v.warn}`,
+    validityWarn: ' — ⚠ 값이 유효 범위를 벗어남(음수 또는 변의 길이 초과): 다른 제약이 누락됐거나 잘못 해석됐을 수 있음, 수동 확인 필요',
+    freeReason: '자유 변수 — 위치 임의 배치',
+    underReason: 'underdetermined 또는 이 변환기가 처리 못하는 제약 — 임의 배치, 수동 조정 필요',
+    unapplied: v => `제약 미반영 [${v.type}] ${v.targets} ${v.value} — ${v.desc}`,
+    ggbLoadFail: 'GeoGebra 스크립트 로드 실패 — 인터넷 연결을 확인하세요.',
+    needExtract: '먼저 문제를 추출하세요.',
+    ggbPreparing: 'GeoGebra 준비 중...',
+    ggbRunning: '작도 실행 중...',
+    cmdFail: v => `명령 실행 실패: ${v.cmd} — ${v.err}`,
+    manualCheck: v => `수동 확인 필요 (${v.n}건)`,
+    diffNone: '차이 없음',
+    diffNumeric: '수치 차이',
+    diffStructural: '구조 차이',
+    diffMixed: '수치+구조 차이',
+    noIssues: '보고된 차이 없음',
+    kindStructural: '구조',
+    kindNumeric: '수치',
+    nextStructural: '→ 4단계: 이 요소에 대해 underdetermined 질문을 추가하거나 새 constraint를 넣고 1단계부터 다시 추출',
+    nextNumeric: '→ 4단계: JSON의 해당 constraint 값만 고치고 2단계(GeoGebra 작도) 재실행',
+    errNoImage: '원본 이미지를 업로드하세요.',
+    errNoGgb: '먼저 GeoGebra 작도를 실행하세요.',
+    capturing: '작도 결과 캡쳐 중...',
+    comparing: '비전 모델로 비교 중...',
+    img1Label: '첫 번째 이미지: 원본 문제 그림',
+    img2Label: '두 번째 이미지: GeoGebra 자동 작도 결과'
+  },
+  en: {
+    h1: 'Geometry Problem → Structured JSON Extractor',
+    sub: 'Pipeline stage 1 prototype. Structures problem text into the points / shapes / constraints / underdetermined / notes schema.',
+    apiSettings: 'API Settings',
+    model: 'Model',
+    keyNote: 'The key is stored only in your browser (localStorage) and is never sent to a server. API calls go directly from your browser to the Anthropic API.',
+    problemInput: 'Problem Input',
+    problemPh: 'e.g. In triangle ABC, AB=5, AC=7 and angle A = 60°. For a point D on side BC, when AD bisects angle A...',
+    extractBtn: 'Extract Structure',
+    resultJson: 'Result (JSON)',
+    noResult: 'No extraction result yet',
+    ggbTitle: 'GeoGebra Construction (Stage 2, rule-based conversion)',
+    constructBtn: 'Construct in GeoGebra',
+    legendLabel: 'Legend:',
+    legDetermined: '● Determined point',
+    legFree: '● Free variable',
+    legUncertain: '● Uncertain position (check manually)',
+    legSegment: '━ Segment',
+    legCircle: '◯ Circle',
+    legAngle: '∠ Angle',
+    legRight: '∟ Right angle',
+    showCmds: 'Show generated GeoGebra commands',
+    cmdsNone: '(none yet)',
+    cmdsEmpty: '(no commands generated)',
+    compareTitle: 'Compare with Original (Stage 3)',
+    compareSub: 'Compares the GeoGebra construction with the figure from the original problem using a vision model, and tells apart simple numeric differences from layout/structural differences.',
+    origImage: 'Original problem image',
+    compareBtn: 'Run Comparison',
+    schemaSummary: 'Show schema definition',
+    schemaPre: `{
+  "points": [
+    { "id": "A", "determined": true | false,
+      "free": true | false,          // is it a free variable whose position doesn't matter?
+      "description": "explanation (e.g. 'a point on AC; exact position matters but is not in the text')" }
+  ],
+  "shapes": [
+    { "type": "triangle | circle | polygon | segment | ...",
+      "points": ["A","B","C"], "id": "optional id" }
+  ],
+  "constraints": [
+    { "type": "length | angle | right_angle | parallel | perpendicular |
+                equal_length | equal_angle | midpoint | ratio | collinear |
+                on_segment | tangent | distance | area | other",
+      "targets": ["A","B"], "value": "5, 60deg, etc.; null if none",
+      "description": "evidence from the original text" }
+  ],
+  "underdetermined": [
+    { "point": "D",
+      "reason": "position is not fixed by the text alone and may affect the result",
+      "question": "narrow question to ask the vision model" }
+  ],
+  "notes": "free-form remarks on anything ambiguous or unusual"
+}`,
+    // runtime messages
+    underWarn: v => `<strong>${v.n} underdetermined point${v.n === 1 ? '' : 's'}</strong> — points whose position isn't fixed by the text alone and may affect the result. Check each item's question.`,
+    errNoKey: 'Enter your API key.',
+    errNoText: 'Enter the problem text.',
+    extracting: 'Extracting...',
+    apiError: v => `API error (${v.status}): ${v.err}`,
+    parseFail: 'JSON parse failed — showing the raw response.',
+    done: 'Done',
+    errorOccurred: 'An error occurred',
+    unresDefaultLen: v => `${v.p}-${v.q}: no length given in the problem, placed arbitrarily at ${v.len} (safe to ignore if the answer doesn't depend on length)`,
+    unresRotate: v => `${v.p}: approximated by rotating from the ${v.vertex}→${v.ref} direction about ${v.vertex} — check the orientation (sign)`,
+    unresDerived: v => `${v.p}: absolute scale follows an arbitrary reference (${v.vertex}-${v.ref}=${v.len}), but the ${v.vertex}-${v.p} ratio is derived exactly from the other angle conditions`,
+    unresAngleOnly: v => `${v.p}: no length given, placed arbitrarily at distance ${v.len} from ${v.vertex} (ignorable if only angles matter) — check the direction`,
+    unresMid: v => `${v.p}: lies on ${v.a}-${v.b} but the text gives no exact ratio, so it is placed at the midpoint arbitrarily — verify manually`,
+    solverMsg: v => `[Solver] ${v.ids}: computed from a system of equations (${v.vals})${v.warn}`,
+    validityWarn: ' — ⚠ value out of valid range (negative or longer than the side): another constraint may be missing or misread — verify manually',
+    freeReason: 'free variable — placed arbitrarily',
+    underReason: 'underdetermined, or a constraint this converter cannot handle — placed arbitrarily, adjust manually',
+    unapplied: v => `Constraint not applied [${v.type}] ${v.targets} ${v.value} — ${v.desc}`,
+    ggbLoadFail: 'Failed to load the GeoGebra script — check your internet connection.',
+    needExtract: 'Extract the problem first.',
+    ggbPreparing: 'Preparing GeoGebra...',
+    ggbRunning: 'Running construction...',
+    cmdFail: v => `Command failed: ${v.cmd} — ${v.err}`,
+    manualCheck: v => `Manual check needed (${v.n})`,
+    diffNone: 'No difference',
+    diffNumeric: 'Numeric difference',
+    diffStructural: 'Structural difference',
+    diffMixed: 'Numeric + structural difference',
+    noIssues: 'No differences reported',
+    kindStructural: 'Structural',
+    kindNumeric: 'Numeric',
+    nextStructural: '→ Stage 4: add an underdetermined question or a new constraint for this element, then re-extract from stage 1',
+    nextNumeric: '→ Stage 4: fix only the relevant constraint value in the JSON, then re-run stage 2 (GeoGebra construction)',
+    errNoImage: 'Upload the original image.',
+    errNoGgb: 'Run the GeoGebra construction first.',
+    capturing: 'Capturing the construction...',
+    comparing: 'Comparing with the vision model...',
+    img1Label: 'First image: the figure from the original problem',
+    img2Label: 'Second image: the automatic GeoGebra construction'
+  }
+};
+
+function t(key, vars) {
+  const s = (I18N[LANG] && I18N[LANG][key] !== undefined) ? I18N[LANG][key] : (I18N.ko[key] !== undefined ? I18N.ko[key] : key);
+  return typeof s === 'function' ? s(vars || {}) : s;
+}
+const getSystemPrompt = () => LANG === 'en' ? SYSTEM_PROMPT_EN : SYSTEM_PROMPT_KO;
+
+function applyLang() {
+  document.documentElement.lang = LANG;
+  document.title = t('h1');
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
+  document.querySelectorAll('.lang-switch button').forEach(b => {
+    const on = b.dataset.lang === LANG;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+  if (lastExtracted) renderWarn(lastExtracted);
+  if (lastCompare) renderCompareResult(lastCompare);
+}
+
 const $ = (id) => document.getElementById(id);
 
 const apiKeyInput = $('apiKey');
@@ -327,15 +694,19 @@ function escapeHtml(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function renderOutput(obj) {
+function renderWarn(obj) {
   warnBox.innerHTML = '';
   const underdetermined = obj.underdetermined || [];
   if (underdetermined.length > 0) {
     const box = document.createElement('div');
     box.className = 'warn-box';
-    box.innerHTML = `<strong>underdetermined 점 ${underdetermined.length}개</strong> — 텍스트만으로 위치가 정해지지 않고 결과에 영향을 줄 수 있는 점입니다. 각 항목의 question을 확인하세요.`;
+    box.innerHTML = t('underWarn', { n: underdetermined.length });
     warnBox.appendChild(box);
   }
+}
+
+function renderOutput(obj) {
+  renderWarn(obj);
   output.textContent = JSON.stringify(obj, null, 2);
 }
 
@@ -344,12 +715,12 @@ async function extract() {
   const model = modelInput.value.trim();
   const text = problemText.value.trim();
 
-  if (!apiKey) { setStatus('API 키를 입력하세요.', 'error'); return; }
-  if (!text) { setStatus('문제 텍스트를 입력하세요.', 'error'); return; }
+  if (!apiKey) { setStatus(t('errNoKey'), 'error'); return; }
+  if (!text) { setStatus(t('errNoText'), 'error'); return; }
 
   extractBtn.disabled = true;
-  setStatus('추출 중...', '');
-  output.innerHTML = '<span class="empty-hint">추출 중...</span>';
+  setStatus(t('extracting'), '');
+  output.innerHTML = '<span class="empty-hint">' + escapeHtml(t('extracting')) + '</span>';
   warnBox.innerHTML = '';
 
   try {
@@ -364,7 +735,7 @@ async function extract() {
       body: JSON.stringify({
         model: model,
         max_tokens: 4096,
-        system: SYSTEM_PROMPT,
+        system: getSystemPrompt(),
         messages: [
           { role: 'user', content: text }
         ]
@@ -373,7 +744,7 @@ async function extract() {
 
     if (!res.ok) {
       const errText = await res.text();
-      throw new Error(`API 오류 (${res.status}): ${errText}`);
+      throw new Error(t('apiError', { status: res.status, err: errText }));
     }
 
     const data = await res.json();
@@ -386,16 +757,16 @@ async function extract() {
       parsed = JSON.parse(cleaned);
     } catch (e) {
       output.textContent = rawText;
-      setStatus('JSON 파싱 실패 — 원문을 그대로 표시합니다.', 'error');
+      setStatus(t('parseFail'), 'error');
       extractBtn.disabled = false;
       return;
     }
 
     renderOutput(parsed);
-    setStatus('완료', 'ok');
+    setStatus(t('done'), 'ok');
   } catch (err) {
     setStatus(err.message || String(err), 'error');
-    output.innerHTML = '<span class="empty-hint">오류 발생</span>';
+    output.innerHTML = '<span class="empty-hint">' + escapeHtml(t('errorOccurred')) + '</span>';
   } finally {
     extractBtn.disabled = false;
   }
@@ -531,6 +902,9 @@ function solveLeastSquares(residualFn, x0, opts) {
   return { x, cost, residual: r };
 }
 
+// "point P lies inside triangle ABC" hints, Korean or English
+const INTERIOR_RE = /내부|\b(?:inside|interior|within)\b/i;
+
 function parseNumber(value) {
   if (value === null || value === undefined) return null;
   const m = String(value).match(/-?\d+(\.\d+)?/);
@@ -556,7 +930,10 @@ function extractAliases(constraints, points) {
       if (/^[a-zA-Z]$/.test(v)) aliases[v] = { a: c.targets[0], b: c.targets[1], src: c };
     }
     if (c.type === 'other' && c.targets && c.targets.length === 2) {
-      const m = (c.description || '').match(/\b([a-zA-Z])\s*(?:라|로)\s*(?:함|한다|하자|둠|둔다|놓는다|놓자|정의|표기)/);
+      const d = c.description || '';
+      const m = d.match(/\b([a-zA-Z])\s*(?:라|로)\s*(?:함|한다|하자|둠|둔다|놓는다|놓자|정의|표기)/)
+        || d.match(/\blet\s+([a-zA-Z])\s+(?:be|denote|represent|stand for|equal)\b/i)
+        || d.match(/\b(?:call(?:ed)?|denot(?:e|es|ed|ing)|defin(?:e|es|ed|ing)|nam(?:e|es|ed|ing)|label(?:l?ed)?)\b[^.;]*?\b(?:as|by|to be)\s+([a-zA-Z])(?![A-Za-z])/i);
       if (m) aliases[m[1]] = { a: c.targets[0], b: c.targets[1], src: c };
     }
   }
@@ -606,7 +983,7 @@ function extractLinearEquations(constraints, aliasNames) {
     // (which may instead read as prose, e.g. "합이 15" with no literal "=" to match on) —
     // try value first since it's more likely to already be in a parseable clause.
     const desc = c.description || '';
-    const clauses = [String(c.value ?? '')].concat(desc.split(/[,.]|즉|그리고/));
+    const clauses = [String(c.value ?? '')].concat(desc.split(/i\.e\.|[,.;]|즉|그리고|\bthat is\b|\bnamely\b|\band\b/i));
     for (const clause of clauses) {
       const eqMatch = clause.match(/([^=]+)=\s*(-?\d+(\.\d+)?)/);
       if (!eqMatch) continue;
@@ -648,7 +1025,7 @@ function buildGeoGebraCommands(json) {
   }
   function descriptionImpliesVertex(desc, vertex) {
     if (!desc) return false;
-    const singleRe = new RegExp('(?:각도|각)\\s*' + vertex + '\\s*(?:는|은|=|:|가|이)');
+    const singleRe = new RegExp('(?:각도|각|[Aa]ngle(?:\\s+at)?|∠)\\s*' + vertex + '\\s*(?:는|은|=|:|가|이|\\bis\\b)');
     if (singleRe.test(desc)) return true;
     const triples = desc.match(/\b[A-Za-z]{3}\b/g) || [];
     return triples.some(t => t[1].toUpperCase() === vertex.toUpperCase());
@@ -754,7 +1131,7 @@ function buildGeoGebraCommands(json) {
     coords[p.id] = [0, 0]; coords[q.id] = [DEFAULT_LENGTH, 0];
     placed.add(p.id); placed.add(q.id);
     seeded = true;
-    unresolved.push(`${p.id}-${q.id}: 문제에 길이 조건이 없어 임의로 ${DEFAULT_LENGTH}로 배치 (답이 길이에 의존하지 않는 문제라면 무시해도 됨)`);
+    unresolved.push(t('unresDefaultLen', { p: p.id, q: q.id, len: DEFAULT_LENGTH }));
   }
   if (!seeded && points.length > 0) {
     commands.push(`${points[0].gid}=(0,0)`);
@@ -882,7 +1259,7 @@ function buildGeoGebraCommands(json) {
           const distVR = vLen(vSub(coords[refCandidate.id], coords[vertex.id]));
           const rotv = vRotateDeg(vSub(coords[refCandidate.id], coords[vertex.id]), ang);
           coords[p.id] = vAdd(coords[vertex.id], vScale(rotv, distVR > 1e-12 ? d / distVR : 0));
-          unresolved.push(`${p.id}: ${vertex.id} 기준 ${refCandidate.id} 방향에서 회전시켜 근사 배치 — 방향(부호) 확인 필요`);
+          unresolved.push(t('unresRotate', { p: p.id, vertex: vertex.id, ref: refCandidate.id }));
           placed.add(p.id); overallProgress = true; break;
         }
       }
@@ -905,8 +1282,8 @@ function buildGeoGebraCommands(json) {
             const rotv = vRotateDeg(vSub(coords[refCandidate.id], coords[vertex.id]), ang);
             coords[p.id] = vAdd(coords[vertex.id], vScale(rotv, distVR > 1e-12 ? len / distVR : 0));
             unresolved.push(derived !== null
-              ? `${p.id}: 절대 길이는 임의 기준(${vertex.id}-${refCandidate.id}=${DEFAULT_LENGTH})에 맞춘 것이지만, 다른 각도 조건으로부터 ${vertex.id}-${p.id} 비율은 정확히 역산함`
-              : `${p.id}: 길이 조건이 없어 ${vertex.id}에서 거리 ${DEFAULT_LENGTH}로 임의 배치 (각도만 문제라면 무시 가능), 방향 확인 필요`);
+              ? t('unresDerived', { p: p.id, vertex: vertex.id, ref: refCandidate.id, len: DEFAULT_LENGTH })
+              : t('unresAngleOnly', { p: p.id, vertex: vertex.id, len: DEFAULT_LENGTH }));
             placed.add(p.id); overallProgress = true; placedHere = true; break;
           }
         }
@@ -917,7 +1294,7 @@ function buildGeoGebraCommands(json) {
       if (guess && placed.has(guess.a) && placed.has(guess.b)) {
         commands.push(`${p.gid}=${ggName(guess.a)}+${guess.t}*(${ggName(guess.b)}-${ggName(guess.a)})`);
         coords[p.id] = vAdd(coords[guess.a], vScale(vSub(coords[guess.b], coords[guess.a]), guess.t));
-        unresolved.push(`${p.id}: ${guess.a}-${guess.b} 위의 점인데 정확한 비율이 텍스트에 없어 중점으로 임의 배치 — 수동 확인 필요`);
+        unresolved.push(t('unresMid', { p: p.id, a: guess.a, b: guess.b }));
         placed.add(p.id); overallProgress = true; break;
       }
     }
@@ -1102,9 +1479,9 @@ function buildGeoGebraCommands(json) {
         const segLen = vLen(vSub(coordOf(r.otherId, x, sign), coordOf(r.anchorId, x, sign)));
         if (x[idx] < -1e-6 || x[idx] > segLen + 1e-6) valid = false;
       }
-      // sanity filter: "내부의 점" hint vs an already-fixed enclosing polygon
+      // sanity filter: "interior point" (내부의 점) hint vs an already-fixed enclosing polygon
       for (const p of leftover) {
-        if (!/내부/.test(p.description || '')) continue;
+        if (!INTERIOR_RE.test(p.description || '')) continue;
         for (const s of (json.shapes || [])) {
           if ((s.type !== 'triangle' && s.type !== 'polygon') || !s.points) continue;
           if (!s.points.every(id => coordsKnown(id))) continue;
@@ -1159,14 +1536,14 @@ function buildGeoGebraCommands(json) {
     // a standalone "<point>는 ~ 내부의 점" constraint was already spent above as
     // the branch-selection filter, even though it never enters buildResiduals.
     for (const p of leftover) {
-      if (!/내부/.test(p.description || '')) continue;
+      if (!INTERIOR_RE.test(p.description || '')) continue;
       for (const c of constraints) {
         if (c.type === 'other' && c.targets && c.targets.length === 1 && c.targets[0] === p.id) result.consumed.push(c);
       }
     }
 
-    const validityWarning = best.valid ? '' : ' — ⚠ 값이 유효 범위를 벗어남(음수 또는 변의 길이 초과): 다른 제약이 누락됐거나 잘못 해석됐을 수 있음, 수동 확인 필요';
-    result.messages.push(`[솔버] ${leftover.map(p => p.id).join(',')}: 연립방정식으로 계산됨 (${varValueDesc.join(', ')})${validityWarning}`);
+    const validityWarning = best.valid ? '' : t('validityWarn');
+    result.messages.push(t('solverMsg', { ids: leftover.map(p => p.id).join(','), vals: varValueDesc.join(', '), warn: validityWarning }));
     return result;
   }
 
@@ -1177,9 +1554,7 @@ function buildGeoGebraCommands(json) {
     const x = 3 + (gridI % 3) * 2;
     const y = -3 - Math.floor(gridI / 3) * 2;
     commands.push(`${p.gid}=(${x},${y})`);
-    const reason = p.free
-      ? '자유 변수 — 위치 임의 배치'
-      : 'underdetermined 또는 이 변환기가 처리 못하는 제약 — 임의 배치, 수동 조정 필요';
+    const reason = p.free ? t('freeReason') : t('underReason');
     unresolved.push(`${p.id}: ${reason}`);
     placed.add(p.id); gridI++;
   }
@@ -1213,7 +1588,7 @@ function buildGeoGebraCommands(json) {
       if (l1 !== null && l2 !== null && Math.abs(l1 - l2) < 1e-9) continue;
     }
     if (!usedTypes.has(c.type) || c.type === 'other') {
-      unresolved.push(`제약 미반영 [${c.type}] ${c.targets ? c.targets.join(',') : ''} ${c.value || ''} — ${c.description || ''}`);
+      unresolved.push(t('unapplied', { type: c.type, targets: c.targets ? c.targets.join(',') : '', value: c.value || '', desc: c.description || '' }));
     }
   }
 
@@ -1226,7 +1601,7 @@ function loadGeoGebraScript() {
     const s = document.createElement('script');
     s.src = 'https://www.geogebra.org/apps/deployggb.js';
     s.onload = resolve;
-    s.onerror = () => reject(new Error('GeoGebra 스크립트 로드 실패 — 인터넷 연결을 확인하세요.'));
+    s.onerror = () => reject(new Error(t('ggbLoadFail')));
     document.head.appendChild(s);
   });
 }
@@ -1235,6 +1610,7 @@ function initGeoGebra() {
   return new Promise((resolve) => {
     const params = {
       appName: 'classic',
+      language: LANG,
       width: 900,
       height: 480,
       showToolBar: true,
@@ -1299,10 +1675,10 @@ function styleGeoGebra(json) {
 }
 
 async function runConstruction() {
-  if (!lastExtracted) { setConstructStatus('먼저 문제를 추출하세요.', 'error'); return; }
+  if (!lastExtracted) { setConstructStatus(t('needExtract'), 'error'); return; }
 
   constructBtn.disabled = true;
-  setConstructStatus('GeoGebra 준비 중...', '');
+  setConstructStatus(t('ggbPreparing'), '');
   unresolvedBox.innerHTML = '';
 
   try {
@@ -1314,14 +1690,15 @@ async function runConstruction() {
     }
 
     const { commands, unresolved } = buildGeoGebraCommands(lastExtracted);
-    ggbCommandsOut.textContent = commands.join('\n') || '(생성된 명령 없음)';
+    ggbCommandsOut.removeAttribute('data-i18n'); // now holds real output; keep applyLang() from overwriting it
+    ggbCommandsOut.textContent = commands.join('\n') || t('cmdsEmpty');
 
-    setConstructStatus('작도 실행 중...', '');
+    setConstructStatus(t('ggbRunning'), '');
     for (const cmd of commands) {
       try {
         ggbApplet.evalCommand(cmd);
       } catch (e) {
-        unresolved.push(`명령 실행 실패: ${cmd} — ${e.message || e}`);
+        unresolved.push(t('cmdFail', { cmd, err: e.message || e }));
       }
     }
 
@@ -1330,12 +1707,12 @@ async function runConstruction() {
     if (unresolved.length > 0) {
       const box = document.createElement('div');
       box.className = 'warn-box';
-      box.innerHTML = `<strong>수동 확인 필요 (${unresolved.length}건)</strong><br>` +
+      box.innerHTML = `<strong>${escapeHtml(t('manualCheck', { n: unresolved.length }))}</strong><br>` +
         unresolved.map(u => escapeHtml(u)).join('<br>');
       unresolvedBox.appendChild(box);
     }
 
-    setConstructStatus('완료', 'ok');
+    setConstructStatus(t('done'), 'ok');
   } catch (err) {
     setConstructStatus(err.message || String(err), 'error');
   } finally {
@@ -1349,7 +1726,7 @@ constructBtn.addEventListener('click', runConstruction);
 // 3단계: 렌더링 후 원본과 비교 (비전 모델 diff)
 // ---------------------------------------------------------------
 
-const DIFF_SYSTEM_PROMPT = `너는 두 장의 평면기하 도형 이미지를 비교하는 전문가다.
+const DIFF_SYSTEM_PROMPT_KO = `너는 두 장의 평면기하 도형 이미지를 비교하는 전문가다.
 첫 번째 이미지는 원본 문제에 실린 그림이고, 두 번째 이미지는 그 문제를 구조화한 JSON으로부터 GeoGebra로 자동 작도한 결과다.
 원본 그림은 "그림은 실제와 다를 수 있음"을 전제로 하므로 픽셀 단위로 똑같을 필요는 없다. 두 그림이 같은 기하학적 관계(같은 점의 개수와 배치 순서, 같은 선/각/원의 관계)를 나타내는지가 중요하다.
 
@@ -1369,6 +1746,28 @@ const DIFF_SYSTEM_PROMPT = `너는 두 장의 평면기하 도형 이미지를 �
 }
 차이가 없다고 판단되면 diff_type을 "none"으로 하고 issues는 빈 배열로 둔다.`;
 
+const DIFF_SYSTEM_PROMPT_EN = `You are an expert at comparing two plane-geometry figures.
+The first image is the figure printed in the original problem; the second image is the result of automatically constructing, in GeoGebra, the JSON that was extracted from that problem.
+The original figure comes with the premise "the figure may differ from the real configuration", so the two do not need to match pixel for pixel. What matters is whether they express the same geometric relationships (same number and ordering of points, same relationships between lines/angles/circles).
+
+Compare the two images, find the differences, and classify each difference into one of two kinds:
+- "numeric": the relationships/structure are right but concrete values (lengths, angles, ratios) or coordinates look different by eye → fixable by changing only a constraint value in the JSON
+- "structural": the structure itself differs — the ordering of points, which point lies on which line/shape, convex vs. concave, whether things intersect, etc. → needs a new constraint or an extra question about an underdetermined point
+
+Output exactly one JSON object of the schema below. No other explanation or markdown code fences — pure JSON only.
+{
+  "diff_type": "none" | "numeric" | "structural" | "mixed",
+  "summary": "one or two sentences",
+  "issues": [
+    { "kind": "numeric" | "structural",
+      "element": "identifier of the point/line/angle concerned (e.g. 'D' or 'AB')",
+      "description": "what exactly differs" }
+  ]
+}
+If you judge that there is no difference, set diff_type to "none" and leave issues as an empty array.
+Write summary and description in English.`;
+const getDiffPrompt = () => LANG === 'en' ? DIFF_SYSTEM_PROMPT_EN : DIFF_SYSTEM_PROMPT_KO;
+
 const originalImageInput = $('originalImage');
 const originalPreview = $('originalPreview');
 const compareBtn = $('compareBtn');
@@ -1377,6 +1776,7 @@ const compareResult = $('compareResult');
 
 let originalImageBase64 = null;
 let originalImageMediaType = null;
+let lastCompare = null;
 
 function setCompareStatus(msg, kind) {
   compareStatus.textContent = msg;
@@ -1417,7 +1817,7 @@ originalImageInput.addEventListener('change', () => {
 function renderCompareResult(obj) {
   compareResult.innerHTML = '';
   const badge = document.createElement('div');
-  const typeLabel = { none: '차이 없음', numeric: '수치 차이', structural: '구조 차이', mixed: '수치+구조 차이' }[obj.diff_type] || obj.diff_type;
+  const typeLabel = { none: t('diffNone'), numeric: t('diffNumeric'), structural: t('diffStructural'), mixed: t('diffMixed') }[obj.diff_type] || obj.diff_type;
   const typeColor = { none: '#5a6342', numeric: '#8a6d2f', structural: '#9c3b2e', mixed: '#9c3b2e' }[obj.diff_type] || 'var(--muted)';
   badge.innerHTML = `<strong style="color:${typeColor}">${escapeHtml(typeLabel)}</strong>`;
   compareResult.appendChild(badge);
@@ -1431,7 +1831,7 @@ function renderCompareResult(obj) {
   if (issues.length === 0) {
     const p = document.createElement('div');
     p.className = 'empty-hint';
-    p.textContent = '보고된 차이 없음';
+    p.textContent = t('noIssues');
     compareResult.appendChild(p);
     return;
   }
@@ -1441,10 +1841,10 @@ function renderCompareResult(obj) {
     const row = document.createElement('div');
     row.className = 'warn-box';
     row.style.marginTop = '8px';
-    const kindLabel = issue.kind === 'structural' ? '구조' : '수치';
+    const kindLabel = issue.kind === 'structural' ? t('kindStructural') : t('kindNumeric');
     const nextStep = issue.kind === 'structural'
-      ? '→ 4단계: 이 요소에 대해 underdetermined 질문을 추가하거나 새 constraint를 넣고 1단계부터 다시 추출'
-      : '→ 4단계: JSON의 해당 constraint 값만 고치고 2단계(GeoGebra 작도) 재실행';
+      ? t('nextStructural')
+      : t('nextNumeric');
     row.innerHTML = `<strong>[${escapeHtml(kindLabel)}] ${escapeHtml(issue.element || '')}</strong><br>` +
       `${escapeHtml(issue.description || '')}<br>` +
       `<span style="color: var(--muted); font-size: 11.5px;">${escapeHtml(nextStep)}</span>`;
@@ -1455,18 +1855,19 @@ function renderCompareResult(obj) {
 
 async function runCompare() {
   const apiKey = apiKeyInput.value.trim();
-  if (!apiKey) { setCompareStatus('API 키를 입력하세요.', 'error'); return; }
-  if (!originalImageBase64) { setCompareStatus('원본 이미지를 업로드하세요.', 'error'); return; }
-  if (!ggbReady) { setCompareStatus('먼저 GeoGebra 작도를 실행하세요.', 'error'); return; }
+  if (!apiKey) { setCompareStatus(t('errNoKey'), 'error'); return; }
+  if (!originalImageBase64) { setCompareStatus(t('errNoImage'), 'error'); return; }
+  if (!ggbReady) { setCompareStatus(t('errNoGgb'), 'error'); return; }
 
   compareBtn.disabled = true;
-  setCompareStatus('작도 결과 캡쳐 중...', '');
+  lastCompare = null;
+  setCompareStatus(t('capturing'), '');
   compareResult.innerHTML = '';
 
   try {
     const ggbPng = ggbApplet.getPNGBase64(1, true, 300);
 
-    setCompareStatus('비전 모델로 비교 중...', '');
+    setCompareStatus(t('comparing'), '');
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -1478,13 +1879,13 @@ async function runCompare() {
       body: JSON.stringify({
         model: modelInput.value.trim(),
         max_tokens: 2048,
-        system: DIFF_SYSTEM_PROMPT,
+        system: getDiffPrompt(),
         messages: [{
           role: 'user',
           content: [
-            { type: 'text', text: '첫 번째 이미지: 원본 문제 그림' },
+            { type: 'text', text: t('img1Label') },
             { type: 'image', source: { type: 'base64', media_type: originalImageMediaType, data: originalImageBase64 } },
-            { type: 'text', text: '두 번째 이미지: GeoGebra 자동 작도 결과' },
+            { type: 'text', text: t('img2Label') },
             { type: 'image', source: { type: 'base64', media_type: 'image/png', data: ggbPng } }
           ]
         }]
@@ -1493,7 +1894,7 @@ async function runCompare() {
 
     if (!res.ok) {
       const errText = await res.text();
-      throw new Error(`API 오류 (${res.status}): ${errText}`);
+      throw new Error(t('apiError', { status: res.status, err: errText }));
     }
 
     const data = await res.json();
@@ -1501,8 +1902,9 @@ async function runCompare() {
     const cleaned = rawText.trim().replace(/^```(json)?/i, '').replace(/```$/, '').trim();
     const parsed = JSON.parse(cleaned);
 
+    lastCompare = parsed;
     renderCompareResult(parsed);
-    setCompareStatus('완료', 'ok');
+    setCompareStatus(t('done'), 'ok');
   } catch (err) {
     setCompareStatus(err.message || String(err), 'error');
   } finally {
@@ -1518,6 +1920,18 @@ runConstruction = async function() {
   await _origRunConstruction();
   updateCompareBtnState();
 };
+
+// ---------------------------------------------------------------
+// language switch (must run last: applyLang touches state declared above)
+// ---------------------------------------------------------------
+document.querySelectorAll('.lang-switch button').forEach(b => {
+  b.addEventListener('click', () => {
+    LANG = b.dataset.lang;
+    safeSet('ge_lang', LANG);
+    applyLang();
+  });
+});
+applyLang();
 </script>
 </body>
 </html>
